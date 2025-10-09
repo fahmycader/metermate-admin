@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/api';
+import { useMileageReport, useRefreshData } from '@/hooks/useData';
+import { usersAPI } from '@/lib/api';
 import AdminLayout from '@/components/AdminLayout';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 
 interface JobData {
   _id: string;
@@ -59,29 +61,33 @@ interface UserMileageData {
 
 export default function UserMileagePage() {
   const { user } = useAuth();
-  const [mileageData, setMileageData] = useState<UserMileageData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [dateRange, setDateRange] = useState<string>('week');
   const [selectedJob, setSelectedJob] = useState<JobData | null>(null);
+  const [meterReaders, setMeterReaders] = useState<any[]>([]);
 
-  useEffect(() => {
+  const { data: mileageResponse, isLoading, error, refetch } = useMileageReport(dateRange);
+  const refreshMutation = useRefreshData();
+
+  const mileageData = mileageResponse?.data || [];
+
+  // Fetch meter readers for the filter
+  React.useEffect(() => {
+    const fetchMeterReaders = async () => {
+      try {
+        const response = await usersAPI.getMeterReaders();
+        if (response.users) {
+          setMeterReaders(response.users);
+        }
+      } catch (error) {
+        console.error('Error fetching meter readers:', error);
+      }
+    };
+
     if (user?.role === 'admin') {
-      fetchMileageData();
+      fetchMeterReaders();
     }
-  }, [user, dateRange]);
-
-  const fetchMileageData = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get(`/jobs/mileage-report?dateRange=${dateRange}`);
-      setMileageData(response.data.data);
-    } catch (error) {
-      console.error('Error fetching mileage data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user]);
 
   const formatDistance = (distance: number) => {
     return `${distance.toFixed(2)} km`;
@@ -113,7 +119,7 @@ export default function UserMileagePage() {
     );
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-96">
@@ -126,12 +132,52 @@ export default function UserMileagePage() {
     );
   }
 
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Data</h1>
+            <p className="text-gray-600 mb-4">{error.message}</p>
+            <button
+              onClick={() => refetch()}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">User Mileage Tracking</h1>
-          <p className="mt-2 text-gray-600">Monitor distance traveled and job completion locations</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">User Mileage Tracking</h1>
+              <p className="mt-2 text-gray-600">Monitor distance traveled and job completion locations</p>
+            </div>
+            <div className="flex space-x-2">
+              <ConnectionStatus />
+              <button
+                onClick={() => refetch()}
+                disabled={isLoading}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <button
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {refreshMutation.isPending ? 'Syncing...' : 'Sync All'}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
@@ -144,12 +190,12 @@ export default function UserMileagePage() {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
               >
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-                <option value="all">All Time</option>
+                <option value="today" className="text-gray-900">Today</option>
+                <option value="week" className="text-gray-900">This Week</option>
+                <option value="month" className="text-gray-900">This Month</option>
+                <option value="all" className="text-gray-900">All Time</option>
               </select>
             </div>
             <div>
@@ -159,12 +205,12 @@ export default function UserMileagePage() {
               <select
                 value={selectedUser}
                 onChange={(e) => setSelectedUser(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
               >
-                <option value="">All Users</option>
-                {mileageData.map((data) => (
-                  <option key={data.user._id} value={data.user._id}>
-                    {data.user.firstName} {data.user.lastName} ({data.user.employeeId})
+                <option value="" className="text-gray-900">All Users</option>
+                {meterReaders.map((reader) => (
+                  <option key={reader._id} value={reader._id} className="text-gray-900">
+                    {reader.firstName} {reader.lastName} ({reader.employeeId})
                   </option>
                 ))}
               </select>
@@ -198,7 +244,7 @@ export default function UserMileagePage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Distance</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatDistance(mileageData.reduce((sum, data) => sum + data.totalDistance, 0))}
+                  {formatDistance(mileageData.reduce((sum: number, data: UserMileageData) => sum + data.totalDistance, 0))}
                 </p>
               </div>
             </div>
@@ -214,7 +260,7 @@ export default function UserMileagePage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Jobs</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {mileageData.reduce((sum, data) => sum + data.totalJobs, 0)}
+                  {mileageData.reduce((sum: number, data: UserMileageData) => sum + data.totalJobs, 0)}
                 </p>
               </div>
             </div>
@@ -230,7 +276,7 @@ export default function UserMileagePage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Completed Jobs</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {mileageData.reduce((sum, data) => sum + data.completedJobs, 0)}
+                  {mileageData.reduce((sum: number, data: UserMileageData) => sum + data.completedJobs, 0)}
                 </p>
               </div>
             </div>
@@ -265,8 +311,8 @@ export default function UserMileagePage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {mileageData
-                  .filter((data) => !selectedUser || data.user._id === selectedUser)
-                  .map((data) => (
+                  .filter((data: UserMileageData) => !selectedUser || data.user._id === selectedUser)
+                  .map((data: UserMileageData) => (
                     <tr key={data.user._id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
@@ -326,19 +372,19 @@ export default function UserMileagePage() {
                     <div className="mt-2 grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Job Type</p>
-                        <p className="text-sm font-medium">{selectedJob.jobType}</p>
+                        <p className="text-sm font-medium text-gray-900">{selectedJob.jobType}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Status</p>
-                        <p className="text-sm font-medium">{selectedJob.status}</p>
+                        <p className="text-sm font-medium text-gray-900">{selectedJob.status}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Scheduled Date</p>
-                        <p className="text-sm font-medium">{formatDate(selectedJob.scheduledDate)}</p>
+                        <p className="text-sm font-medium text-gray-900">{formatDate(selectedJob.scheduledDate)}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Completed Date</p>
-                        <p className="text-sm font-medium">
+                        <p className="text-sm font-medium text-gray-900">
                           {selectedJob.completedDate ? formatDate(selectedJob.completedDate) : 'N/A'}
                         </p>
                       </div>
@@ -347,21 +393,21 @@ export default function UserMileagePage() {
 
                   <div>
                     <h4 className="font-medium text-gray-900">Address</h4>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-900">
                       {selectedJob.address.street}, {selectedJob.address.city}, {selectedJob.address.state} {selectedJob.address.zipCode}
                     </p>
                   </div>
 
                   <div>
                     <h4 className="font-medium text-gray-900">Distance Traveled</h4>
-                    <p className="text-sm text-gray-600">{formatDistance(selectedJob.distanceTraveled)}</p>
+                    <p className="text-sm text-gray-900">{formatDistance(selectedJob.distanceTraveled)}</p>
                   </div>
 
                   {selectedJob.startLocation && (
                     <div>
                       <h4 className="font-medium text-gray-900">Start Location</h4>
                       <div className="mt-2 flex items-center space-x-4">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-900">
                           {selectedJob.startLocation.latitude.toFixed(6)}, {selectedJob.startLocation.longitude.toFixed(6)}
                         </p>
                         <button
@@ -381,7 +427,7 @@ export default function UserMileagePage() {
                     <div>
                       <h4 className="font-medium text-gray-900">End Location</h4>
                       <div className="mt-2 flex items-center space-x-4">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-900">
                           {selectedJob.endLocation.latitude.toFixed(6)}, {selectedJob.endLocation.longitude.toFixed(6)}
                         </p>
                         <button
@@ -400,7 +446,7 @@ export default function UserMileagePage() {
                   {selectedJob.locationHistory && selectedJob.locationHistory.length > 0 && (
                     <div>
                       <h4 className="font-medium text-gray-900">Location History</h4>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-900">
                         {selectedJob.locationHistory.length} location points recorded
                       </p>
                     </div>

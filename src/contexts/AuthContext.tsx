@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/lib/api';
+import { webSocketService } from '@/services/websocket';
 
 interface User {
   _id: string;
@@ -47,6 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (token && userData) {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
+        
+        // Initialize WebSocket connection
+        webSocketService.connect(token);
       }
     } catch (error) {
       console.error('Auth check error:', error);
@@ -61,6 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authAPI.login(username, password);
       setUser(response);
+      
+      // Initialize WebSocket connection after login
+      const token = localStorage.getItem('token');
+      if (token) {
+        webSocketService.connect(token);
+      }
       
       // Always redirect to dashboard regardless of role
       router.replace('/dashboard');
@@ -84,6 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     authAPI.logout();
     setUser(null);
+    
+    // Disconnect WebSocket
+    webSocketService.disconnect();
+    
     router.replace('/');
   };
 

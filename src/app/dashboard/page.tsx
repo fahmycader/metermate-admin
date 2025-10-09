@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { usersAPI } from '@/lib/api';
+import { useMeterUsers, useRefreshData } from '@/hooks/useData';
 import AdminLayout from '@/components/AdminLayout';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 
 interface User {
   _id: string;
@@ -23,48 +24,30 @@ interface User {
 }
 
 export default function DashboardPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const router = useRouter();
   const { user, logout } = useAuth();
-
-  useEffect(() => {
-    if (user) {
-      fetchUsers();
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await usersAPI.getMeterUsers();
-      setUsers(response.users || []);
-    } catch (error: any) {
-      console.error('Error fetching meter users:', error);
-      if (error.message.includes('403') || error.message.includes('Access denied')) {
-        setError('Access denied: You need admin privileges to view meter users');
-      } else if (error.message.includes('401')) {
-        setError('Authentication failed: Please login again');
-        logout();
-      } else {
-        setError(`Failed to fetch meter users: ${error.message}`);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+  const { data: usersResponse, isLoading, error, refetch } = useMeterUsers();
+  const refreshMutation = useRefreshData();
+  
+  const users = usersResponse?.users || [];
 
   const handleLogout = () => {
     logout();
   };
 
-  const refreshUsers = () => {
-    fetchUsers();
-  };
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading dashboard data...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -111,17 +94,28 @@ export default function DashboardPage() {
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 Meter Department Users
               </h3>
-              <button
-                onClick={refreshUsers}
-                className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700"
-              >
-                Refresh Data
-              </button>
+              <div className="flex space-x-2">
+                <ConnectionStatus />
+                <button
+                  onClick={() => refetch()}
+                  disabled={isLoading}
+                  className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Refreshing...' : 'Refresh'}
+                </button>
+                <button
+                  onClick={() => refreshMutation.mutate()}
+                  disabled={refreshMutation.isPending}
+                  className="bg-green-600 text-white px-3 py-2 rounded-md text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {refreshMutation.isPending ? 'Syncing...' : 'Sync All'}
+                </button>
+              </div>
             </div>
 
             {error && (
               <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
-                <div className="text-sm text-red-600">{error}</div>
+                <div className="text-sm text-red-600">{error.message}</div>
               </div>
             )}
 
@@ -132,7 +126,7 @@ export default function DashboardPage() {
                   Make sure your backend is running and connected to MongoDB
                 </div>
               </div>
-            ) : error && error.includes('Access denied') ? (
+            ) : error && error.message.includes('Access denied') ? (
               <div className="text-center py-8">
                 <div className="text-gray-500 mb-4">Access Restricted</div>
                 <div className="text-sm text-gray-400 mb-4">
@@ -170,7 +164,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {users.map((dbUser) => (
+                    {users.map((dbUser: User) => (
                       <tr key={dbUser._id} className={dbUser._id === user?._id ? 'bg-blue-50' : ''}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">

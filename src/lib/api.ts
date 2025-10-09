@@ -261,6 +261,16 @@ export const jobsAPI = {
       throw new Error(error.response?.data?.message || 'Failed to get mileage report');
     }
   },
+
+  getWageReport: async (params?: any) => {
+    try {
+      const response = await api.get('/jobs/wage-report', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get wage report error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get wage report');
+    }
+  },
 };
 
 export default api;

@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { jobsAPI, usersAPI } from '@/lib/api';
+import { useJobs, useMeterUsers, useRefreshData } from '@/hooks/useData';
+import { jobsAPI } from '@/lib/api';
 import { CustomTextInput, CustomNumberInput } from '@/components/CustomInput';
 import { JobTypeSelect, UserSelect, PrioritySelect, StatusSelect } from '@/components/JobDropdowns';
 import AdminLayout from '@/components/AdminLayout';
 import DeleteDialog from '@/components/DeleteDialog';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 
 interface Job {
   _id: string;
@@ -53,10 +55,6 @@ interface User {
 }
 
 export default function JobsPage() {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -74,6 +72,7 @@ export default function JobsPage() {
     priority: '',
     assignedTo: '',
   });
+  const [submitError, setSubmitError] = useState('');
   const { user } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -95,47 +94,18 @@ export default function JobsPage() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  const { data: jobsResponse, isLoading, error, refetch } = useJobs(filters);
+  const { data: usersResponse } = useMeterUsers();
+  const refreshMutation = useRefreshData();
+
+  const jobs = jobsResponse?.jobs || [];
+  const users = usersResponse?.users || [];
+
   useEffect(() => {
-    if (user) {
-      fetchJobs();
-      fetchUsers();
-    }
-  }, [user]);
-
-  // Real-time updates every 30 seconds
-  useEffect(() => {
-    if (!user) return;
-    
-    const interval = setInterval(() => {
-      fetchJobs();
-    }, 30000); // Refresh every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [user]);
-
-  const fetchJobs = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await jobsAPI.getJobs(filters);
-      setJobs(response.jobs || []);
+    if (jobsResponse) {
       setLastUpdated(new Date());
-    } catch (error: any) {
-      console.error('Error fetching jobs:', error);
-      setError(`Failed to fetch jobs: ${error.message}`);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const fetchUsers = async () => {
-    try {
-      const response = await usersAPI.getMeterUsers();
-      setUsers(response.users || []);
-    } catch (error: any) {
-      console.error('Error fetching users:', error);
-    }
-  };
+  }, [jobsResponse]);
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -185,7 +155,7 @@ export default function JobsPage() {
     }
 
     try {
-      setError('');
+      setSubmitError('');
       if (editingJob) {
         await jobsAPI.updateJob(editingJob._id, formData);
         setEditingJob(null);
@@ -194,9 +164,9 @@ export default function JobsPage() {
       }
       
       resetForm();
-      fetchJobs();
-    } catch (error: any) {
-      setError(error.message || 'Failed to save job');
+      refetch();
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to save job');
     }
   };
 
@@ -251,8 +221,8 @@ export default function JobsPage() {
     try {
       await jobsAPI.deleteJob(deleteDialog.job._id);
       
-      // Remove job from local state
-      setJobs(prev => prev.filter(j => j._id !== deleteDialog.job!._id));
+      // Refresh the jobs list
+      refetch();
       
       // Close dialog
       setDeleteDialog({
@@ -262,10 +232,10 @@ export default function JobsPage() {
       });
 
       // Show success message
-      setError('');
-    } catch (error: any) {
-      console.error('Error deleting job:', error);
-      setError(`Failed to delete job: ${error.message}`);
+      setSubmitError('');
+    } catch (err: any) {
+      console.error('Error deleting job:', err);
+      setSubmitError(`Failed to delete job: ${err.message}`);
       setDeleteDialog(prev => ({ ...prev, isLoading: false }));
     }
   };
@@ -306,7 +276,7 @@ export default function JobsPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-96">
@@ -358,7 +328,7 @@ export default function JobsPage() {
               </div>
               <div className="mt-4 flex space-x-2">
                 <button
-                  onClick={fetchJobs}
+                  onClick={() => refetch()}
                   className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700"
                 >
                   Apply Filters
@@ -366,7 +336,7 @@ export default function JobsPage() {
                 <button
                   onClick={() => {
                     setFilters({ status: '', jobType: '', priority: '', assignedTo: '' });
-                    fetchJobs();
+                    refetch();
                   }}
                   className="bg-gray-600 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-700"
                 >
@@ -384,9 +354,9 @@ export default function JobsPage() {
                   {editingJob ? 'Edit Job' : 'Create New Job'}
                 </h3>
                 
-                {error && (
+                {(error?.message || submitError) && (
                   <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
-                    <div className="text-sm text-red-600">{error}</div>
+                    <div className="text-sm text-red-600">{error?.message || submitError}</div>
                   </div>
                 )}
 
@@ -403,7 +373,7 @@ export default function JobsPage() {
                       onChange={(e) => {
                         console.log('UserSelect changed to:', e.target.value);
                         setFormData({ ...formData, assignedTo: e.target.value });
-                        // Clear validation error when user selects a value
+                        // Clear validation error?.message when user selects a value
                         if (validationErrors.assignedTo) {
                           setValidationErrors({ ...validationErrors, assignedTo: '' });
                         }
@@ -542,14 +512,14 @@ export default function JobsPage() {
                 </div>
                 <div className="flex space-x-2">
                   <button
-                    onClick={fetchJobs}
-                    disabled={loading}
+                    onClick={() => refetch()}
+                    disabled={isLoading}
                     className="bg-gray-600 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-700 disabled:opacity-50 flex items-center"
                   >
                     <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    {loading ? 'Refreshing...' : 'Refresh'}
+                    {isLoading ? 'Refreshing...' : 'Refresh'}
                   </button>
                   <button
                     onClick={() => setShowCreateForm(true)}
@@ -596,7 +566,7 @@ export default function JobsPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {jobs.map((job) => (
+                      {jobs.map((job: Job) => (
                         <tr key={job._id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
