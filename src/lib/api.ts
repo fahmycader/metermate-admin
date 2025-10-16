@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://192.168.8.163:3001/api';
+const API_BASE_URL = 'http://192.168.1.99:3001/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -269,6 +269,48 @@ export const jobsAPI = {
     } catch (error: any) {
       console.error('Get wage report error:', error);
       throw new Error(error.response?.data?.message || 'Failed to get wage report');
+    }
+  },
+};
+
+export const messagesAPI = {
+  getMessages: async () => {
+    try {
+      const response = await api.get('/messages/admin/list');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get messages error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get messages');
+    }
+  },
+
+  sendMessage: async (messageData: any) => {
+    try {
+      const response = await api.post('/messages', messageData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Send message error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to send message');
+    }
+  },
+
+  markAsRead: async (messageId: string) => {
+    try {
+      const response = await api.put(`/messages/${messageId}/read`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Mark message as read error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to mark message as read');
+    }
+  },
+
+  deleteMessage: async (messageId: string) => {
+    try {
+      const response = await api.delete(`/messages/${messageId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Delete message error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to delete message');
     }
   },
 };

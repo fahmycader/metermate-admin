@@ -9,7 +9,7 @@ class WebSocketService {
       return;
     }
 
-    this.socket = io('http://192.168.8.163:3001', {
+    this.socket = io('http://192.168.1.99:3001', {
       auth: {
         token,
       },
