@@ -242,6 +242,26 @@ export const jobsAPI = {
     }
   },
 
+  deleteJobsBulk: async (jobIds: string[]) => {
+    try {
+      const response = await api.delete('/jobs/bulk', { data: { jobIds } });
+      return response.data;
+    } catch (error: any) {
+      console.error('Bulk delete jobs error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to delete jobs');
+    }
+  },
+
+  deleteUserJobs: async (userId: string) => {
+    try {
+      const response = await api.delete(`/jobs/user/${userId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Delete user jobs error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to delete user jobs');
+    }
+  },
+
   getUserJobCount: async (userId: string, params?: any) => {
     try {
       const response = await api.get(`/jobs/user/${userId}/count`, { params });
@@ -269,6 +289,29 @@ export const jobsAPI = {
     } catch (error: any) {
       console.error('Get wage report error:', error);
       throw new Error(error.response?.data?.message || 'Failed to get wage report');
+    }
+  },
+
+  uploadExcel: async (file: File, assignedTo: string, scheduledDate: string, priority: string = 'medium') => {
+    try {
+      const formData = new FormData();
+      formData.append('excelFile', file);
+      formData.append('assignedTo', assignedTo);
+      formData.append('scheduledDate', scheduledDate);
+      formData.append('priority', priority);
+
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/jobs/upload-excel`, formData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 300000, // 5 minutes timeout for large files
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Upload Excel error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to upload Excel file');
     }
   },
 };
@@ -306,7 +349,8 @@ export const messagesAPI = {
 
   deleteMessage: async (messageId: string) => {
     try {
-      const response = await api.delete(`/messages/${messageId}`);
+      // Admin can delete any message using the admin endpoint
+      const response = await api.delete(`/messages/admin/${messageId}`);
       return response.data;
     } catch (error: any) {
       console.error('Delete message error:', error);

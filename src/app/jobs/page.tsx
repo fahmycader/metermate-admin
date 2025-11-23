@@ -30,8 +30,15 @@ interface Job {
   status: string;
   priority: string;
   scheduledDate: string;
+  sequenceNumber?: number | null;
   completedDate?: string;
   notes?: string;
+  sup?: string;
+  jt?: string;
+  cust?: string;
+  meterMake?: string;
+  meterModel?: string;
+  meterSerialNumber?: string;
   meterReadings?: {
     electric?: number;
     gas?: number;
@@ -56,6 +63,14 @@ interface User {
 
 export default function JobsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showExcelUpload, setShowExcelUpload] = useState(false);
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [excelUploadData, setExcelUploadData] = useState({
+    assignedTo: '',
+    scheduledDate: '',
+    priority: 'medium',
+  });
+  const [isUploadingExcel, setIsUploadingExcel] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
@@ -64,6 +79,27 @@ export default function JobsPage() {
   }>({
     isOpen: false,
     job: null,
+    isLoading: false,
+  });
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
+  const [bulkDeleteDialog, setBulkDeleteDialog] = useState<{
+    isOpen: boolean;
+    count: number;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    count: 0,
+    isLoading: false,
+  });
+  const [deleteUserJobsDialog, setDeleteUserJobsDialog] = useState<{
+    isOpen: boolean;
+    userId: string | null;
+    userName: string;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    userId: null,
+    userName: '',
     isLoading: false,
   });
   const [filters, setFilters] = useState({
@@ -89,6 +125,12 @@ export default function JobsPage() {
     status: 'pending',
     scheduledDate: '',
     notes: '',
+    sup: '',
+    jt: '',
+    cust: '',
+    meterMake: '',
+    meterModel: '',
+    meterSerialNumber: '',
   });
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -185,6 +227,12 @@ export default function JobsPage() {
       status: 'pending',
       scheduledDate: '',
       notes: '',
+      sup: '',
+      jt: '',
+      cust: '',
+      meterMake: '',
+      meterModel: '',
+      meterSerialNumber: '',
     });
     setValidationErrors({});
     setShowCreateForm(false);
@@ -201,6 +249,12 @@ export default function JobsPage() {
       status: job.status,
       scheduledDate: job.scheduledDate.split('T')[0],
       notes: job.notes || '',
+      sup: job.sup || '',
+      jt: job.jt || '',
+      cust: job.cust || '',
+      meterMake: job.meterMake || '',
+      meterModel: job.meterModel || '',
+      meterSerialNumber: job.meterSerialNumber || '',
     });
     setShowCreateForm(true);
   };
@@ -231,6 +285,13 @@ export default function JobsPage() {
         isLoading: false,
       });
 
+      // Clear selection if deleted job was selected
+      setSelectedJobs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(deleteDialog.job!._id);
+        return newSet;
+      });
+
       // Show success message
       setSubmitError('');
     } catch (err: any) {
@@ -240,12 +301,157 @@ export default function JobsPage() {
     }
   };
 
+  const handleSelectJob = (jobId: string) => {
+    setSelectedJobs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId);
+      } else {
+        newSet.add(jobId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedJobs.size === jobs.length) {
+      setSelectedJobs(new Set());
+    } else {
+      setSelectedJobs(new Set(jobs.map((job: Job) => job._id)));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedJobs.size === 0) return;
+    setBulkDeleteDialog({
+      isOpen: true,
+      count: selectedJobs.size,
+      isLoading: false,
+    });
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedJobs.size === 0) return;
+
+    setBulkDeleteDialog(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      await jobsAPI.deleteJobsBulk(Array.from(selectedJobs));
+      
+      // Refresh the jobs list
+      refetch();
+      
+      // Clear selection
+      setSelectedJobs(new Set());
+      
+      // Close dialog
+      setBulkDeleteDialog({
+        isOpen: false,
+        count: 0,
+        isLoading: false,
+      });
+
+      // Show success message
+      setSubmitError('');
+    } catch (err: any) {
+      console.error('Error deleting jobs:', err);
+      setSubmitError(`Failed to delete jobs: ${err.message}`);
+      setBulkDeleteDialog(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  const handleDeleteUserJobs = () => {
+    const userId = filters.assignedTo;
+    if (!userId) return;
+
+    const user = users.find((u: User) => u._id === userId);
+    const userName = user ? `${user.firstName} ${user.lastName}` : 'this user';
+
+    setDeleteUserJobsDialog({
+      isOpen: true,
+      userId,
+      userName,
+      isLoading: false,
+    });
+  };
+
+  const confirmDeleteUserJobs = async () => {
+    if (!deleteUserJobsDialog.userId) return;
+
+    setDeleteUserJobsDialog(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      await jobsAPI.deleteUserJobs(deleteUserJobsDialog.userId);
+      
+      // Refresh the jobs list
+      refetch();
+      
+      // Clear selection
+      setSelectedJobs(new Set());
+      
+      // Close dialog
+      setDeleteUserJobsDialog({
+        isOpen: false,
+        userId: null,
+        userName: '',
+        isLoading: false,
+      });
+
+      // Show success message
+      setSubmitError('');
+    } catch (err: any) {
+      console.error('Error deleting user jobs:', err);
+      setSubmitError(`Failed to delete user jobs: ${err.message}`);
+      setDeleteUserJobsDialog(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
   const closeDeleteDialog = () => {
     setDeleteDialog({
       isOpen: false,
       job: null,
       isLoading: false,
     });
+  };
+
+  const handleExcelUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!excelFile) {
+      setSubmitError('Please select an Excel file');
+      return;
+    }
+
+    if (!excelUploadData.assignedTo) {
+      setSubmitError('Please select an assigned user');
+      return;
+    }
+
+    if (!excelUploadData.scheduledDate) {
+      setSubmitError('Please select a scheduled date');
+      return;
+    }
+
+    try {
+      setIsUploadingExcel(true);
+      setSubmitError('');
+      const result = await jobsAPI.uploadExcel(
+        excelFile,
+        excelUploadData.assignedTo,
+        excelUploadData.scheduledDate,
+        excelUploadData.priority
+      );
+      
+      setShowExcelUpload(false);
+      setExcelFile(null);
+      setExcelUploadData({ assignedTo: '', scheduledDate: '', priority: 'medium' });
+      refetch();
+      alert(`Successfully uploaded ${result.count} jobs ordered by location!`);
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to upload Excel file');
+    } finally {
+      setIsUploadingExcel(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -345,6 +551,100 @@ export default function JobsPage() {
               </div>
             </div>
           </div>
+
+          {/* Excel Upload Form */}
+          {showExcelUpload && (
+            <div className="bg-white shadow rounded-lg mb-6">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Upload Excel File with Job Details
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Upload an Excel file (.xlsx, .xls, .csv) with job details. Jobs will be automatically ordered by nearest location and numbered sequentially.
+                </p>
+                <p className="text-xs text-gray-500 mb-4">
+                  Required columns: street, city, state, zipCode (optional: jobType, sup, jt, cust, meterMake, meterModel, meterSerialNumber, notes, priority)
+                </p>
+                
+                {submitError && (
+                  <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
+                    <div className="text-sm text-red-600">{submitError}</div>
+                  </div>
+                )}
+
+                <form onSubmit={handleExcelUpload} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Excel File
+                    </label>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={(e) => setExcelFile(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <UserSelect
+                      value={excelUploadData.assignedTo}
+                      onChange={(e) => setExcelUploadData({ ...excelUploadData, assignedTo: e.target.value })}
+                      users={users}
+                      error={excelUploadData.assignedTo ? '' : 'Required'}
+                    />
+                    
+                    <CustomTextInput
+                      id="excelScheduledDate"
+                      name="excelScheduledDate"
+                      type="date"
+                      label="Scheduled Date"
+                      value={excelUploadData.scheduledDate}
+                      onChange={(e) => setExcelUploadData({ ...excelUploadData, scheduledDate: e.target.value })}
+                      required
+                    />
+                    
+                    <PrioritySelect
+                      value={excelUploadData.priority}
+                      onChange={(e) => setExcelUploadData({ ...excelUploadData, priority: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExcelUpload(false);
+                        setExcelFile(null);
+                        setExcelUploadData({ assignedTo: '', scheduledDate: '', priority: 'medium' });
+                        setSubmitError('');
+                      }}
+                      className="bg-gray-600 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isUploadingExcel}
+                      className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-700 disabled:opacity-50 flex items-center"
+                    >
+                      {isUploadingExcel ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Uploading...
+                        </>
+                      ) : (
+                        'Upload & Create Jobs'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
           {/* Create/Edit Job Form */}
           {showCreateForm && (
@@ -467,6 +767,73 @@ export default function JobsPage() {
                     />
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <CustomTextInput
+                      id="sup"
+                      name="sup"
+                      type="text"
+                      label="Supplier (Sup)"
+                      value={formData.sup}
+                      onChange={(e) => setFormData({ ...formData, sup: e.target.value })}
+                      placeholder="Enter supplier name"
+                    />
+                    
+                    <CustomTextInput
+                      id="jt"
+                      name="jt"
+                      type="text"
+                      label="Job Title (JT)"
+                      value={formData.jt}
+                      onChange={(e) => setFormData({ ...formData, jt: e.target.value })}
+                      placeholder="Enter job title"
+                    />
+                    
+                    <CustomTextInput
+                      id="cust"
+                      name="cust"
+                      type="text"
+                      label="Customer (Cust)"
+                      value={formData.cust}
+                      onChange={(e) => setFormData({ ...formData, cust: e.target.value })}
+                      placeholder="Enter customer name"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-md font-medium text-gray-900">Meter Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <CustomTextInput
+                        id="meterMake"
+                        name="meterMake"
+                        type="text"
+                        label="Meter Make"
+                        value={formData.meterMake}
+                        onChange={(e) => setFormData({ ...formData, meterMake: e.target.value })}
+                        placeholder="Enter meter make"
+                      />
+                      
+                      <CustomTextInput
+                        id="meterModel"
+                        name="meterModel"
+                        type="text"
+                        label="Meter Model"
+                        value={formData.meterModel}
+                        onChange={(e) => setFormData({ ...formData, meterModel: e.target.value })}
+                        placeholder="Enter meter model"
+                      />
+                      
+                      <CustomTextInput
+                        id="meterSerialNumber"
+                        name="meterSerialNumber"
+                        type="text"
+                        label="Meter Serial Number"
+                        value={formData.meterSerialNumber}
+                        onChange={(e) => setFormData({ ...formData, meterSerialNumber: e.target.value })}
+                        placeholder="Enter meter serial number"
+                      />
+                    </div>
+                  </div>
+
                   <CustomTextInput
                     id="notes"
                     name="notes"
@@ -511,6 +878,28 @@ export default function JobsPage() {
                   )}
                 </div>
                 <div className="flex space-x-2">
+                  {selectedJobs.size > 0 && (
+                    <button
+                      onClick={handleBulkDelete}
+                      className="bg-red-600 text-white px-4 py-2 rounded-md text-sm hover:bg-red-700 flex items-center"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete Selected ({selectedJobs.size})
+                    </button>
+                  )}
+                  {filters.assignedTo && (
+                    <button
+                      onClick={handleDeleteUserJobs}
+                      className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm hover:bg-orange-700 flex items-center"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete All Jobs for User
+                    </button>
+                  )}
                   <button
                     onClick={() => refetch()}
                     disabled={isLoading}
@@ -520,6 +909,15 @@ export default function JobsPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     {isLoading ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                  <button
+                    onClick={() => setShowExcelUpload(true)}
+                    className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-700 flex items-center"
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Upload Excel
                   </button>
                   <button
                     onClick={() => setShowCreateForm(true)}
@@ -543,6 +941,14 @@ export default function JobsPage() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <input
+                            type="checkbox"
+                            checked={selectedJobs.size === jobs.length && jobs.length > 0}
+                            onChange={handleSelectAll}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Job
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -561,19 +967,35 @@ export default function JobsPage() {
                           Scheduled
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Additional Info
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {jobs.map((job: Job) => (
-                        <tr key={job._id}>
+                        <tr key={job._id} className={selectedJobs.has(job._id) ? 'bg-blue-50' : ''}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={selectedJobs.has(job._id)}
+                              onChange={() => handleSelectJob(job._id)}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <span className="text-2xl mr-3">{getJobTypeIcon(job.jobType)}</span>
                               <div>
                                 <div className="text-sm font-medium text-gray-900 capitalize">
                                   {job.jobType}
+                                  {job.sequenceNumber !== null && job.sequenceNumber !== undefined && (
+                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                      #{job.sequenceNumber}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-sm text-gray-500">
                                   ID: {job._id.slice(-8)}
@@ -609,6 +1031,13 @@ export default function JobsPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {new Date(job.scheduledDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {job.sup && <div>Sup: {job.sup}</div>}
+                              {job.jt && <div>JT: {job.jt}</div>}
+                              {job.cust && <div>Cust: {job.cust}</div>}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-2">
@@ -650,6 +1079,26 @@ export default function JobsPage() {
         title="Delete Job"
         itemName={deleteDialog.job ? `${deleteDialog.job.jobType} job at ${deleteDialog.job.address.street}` : ''}
         isLoading={deleteDialog.isLoading}
+      />
+
+      {/* Bulk Delete Dialog */}
+      <DeleteDialog
+        isOpen={bulkDeleteDialog.isOpen}
+        onClose={() => setBulkDeleteDialog({ isOpen: false, count: 0, isLoading: false })}
+        onConfirm={confirmBulkDelete}
+        title="Delete Selected Jobs"
+        itemName={`${bulkDeleteDialog.count} job(s)`}
+        isLoading={bulkDeleteDialog.isLoading}
+      />
+
+      {/* Delete User Jobs Dialog */}
+      <DeleteDialog
+        isOpen={deleteUserJobsDialog.isOpen}
+        onClose={() => setDeleteUserJobsDialog({ isOpen: false, userId: null, userName: '', isLoading: false })}
+        onConfirm={confirmDeleteUserJobs}
+        title="Delete All Jobs for User"
+        itemName={`all jobs assigned to ${deleteUserJobsDialog.userName}`}
+        isLoading={deleteUserJobsDialog.isLoading}
       />
     </AdminLayout>
   );

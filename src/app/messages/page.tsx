@@ -22,6 +22,7 @@ interface Message {
   body: string;
   type: string;
   read: boolean;
+  starred?: boolean;
   createdAt: string;
 }
 
@@ -343,8 +344,18 @@ export default function MessagesPage() {
                           }`}>
                             {message.type ? message.type.replace('_', ' ') : 'Unknown'}
                           </span>
-                          {!message.read && (
-                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
+                          {message.read ? (
+                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center gap-1">
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Read
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center gap-1">
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
                               Unread
                             </span>
                           )}
@@ -354,7 +365,7 @@ export default function MessagesPage() {
                           {message.body}
                         </p>
                         
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 space-y-1">
                           <div>
                             <strong>To:</strong> {message.recipient.firstName} {message.recipient.lastName} ({message.recipient.username})
                           </div>
@@ -366,6 +377,11 @@ export default function MessagesPage() {
                           <div>
                             <strong>Sent:</strong> {new Date(message.createdAt).toLocaleString()}
                           </div>
+                          {message.read && (
+                            <div className="text-green-600 font-medium">
+                              ✓ Message opened by operative
+                            </div>
+                          )}
                         </div>
                       </div>
                       
