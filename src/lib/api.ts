@@ -137,6 +137,19 @@ export const usersAPI = {
       throw new Error(error.response?.data?.message || 'Failed to delete user');
     }
   },
+
+  getUserProgress: async (id: string, startDate?: string, endDate?: string) => {
+    try {
+      const params: any = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      const response = await api.get(`/users/${id}/progress`, { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get user progress error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get user progress');
+    }
+  },
 };
 
 export const housesAPI = {

@@ -36,6 +36,17 @@ export default function UsersPage() {
     user: null,
     isLoading: false,
   });
+  const [progressDialog, setProgressDialog] = useState<{
+    isOpen: boolean;
+    user: User | null;
+    isLoading: boolean;
+    progressData: any;
+  }>({
+    isOpen: false,
+    user: null,
+    isLoading: false,
+    progressData: null,
+  });
   const { user } = useAuth();
 
   useEffect(() => {
@@ -111,6 +122,42 @@ export default function UsersPage() {
       isOpen: false,
       user: null,
       isLoading: false,
+    });
+  };
+
+  const handleViewProgress = async (userToView: User) => {
+    setProgressDialog({
+      isOpen: true,
+      user: userToView,
+      isLoading: true,
+      progressData: null,
+    });
+
+    try {
+      const response = await usersAPI.getUserProgress(userToView._id);
+      setProgressDialog({
+        isOpen: true,
+        user: userToView,
+        isLoading: false,
+        progressData: response,
+      });
+    } catch (error: any) {
+      console.error('Error fetching progress:', error);
+      setProgressDialog({
+        isOpen: true,
+        user: userToView,
+        isLoading: false,
+        progressData: null,
+      });
+    }
+  };
+
+  const closeProgressDialog = () => {
+    setProgressDialog({
+      isOpen: false,
+      user: null,
+      isLoading: false,
+      progressData: null,
     });
   };
 
@@ -262,6 +309,15 @@ export default function UsersPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleViewProgress(dbUser)}
+                              className="text-blue-600 hover:text-blue-900 text-sm"
+                              title="View Progress"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
+                            </button>
                             {dbUser._id !== user?._id && (
                               <button
                                 onClick={() => handleDeleteUser(dbUser)}
@@ -294,6 +350,101 @@ export default function UsersPage() {
         itemName={deleteDialog.user ? `${deleteDialog.user.firstName} ${deleteDialog.user.lastName}` : ''}
         isLoading={deleteDialog.isLoading}
       />
+
+      {/* Progress Dialog */}
+      {progressDialog.isOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  {progressDialog.user ? `${progressDialog.user.firstName} ${progressDialog.user.lastName} - Progress Report` : 'Progress Report'}
+                </h3>
+                <button
+                  onClick={closeProgressDialog}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {progressDialog.isLoading ? (
+                <div className="text-center py-8">
+                  <div className="text-lg font-medium text-gray-900 mb-2">Loading Progress...</div>
+                  <div className="text-sm text-gray-500">Fetching progress data</div>
+                </div>
+              ) : progressDialog.progressData ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600">Total Jobs</div>
+                      <div className="text-2xl font-bold text-blue-700">{progressDialog.progressData.statistics.totalJobs}</div>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600">Completed Jobs</div>
+                      <div className="text-2xl font-bold text-green-700">{progressDialog.progressData.statistics.completedJobs}</div>
+                    </div>
+                    <div className="bg-yellow-50 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600">Pending Jobs</div>
+                      <div className="text-2xl font-bold text-yellow-700">{progressDialog.progressData.statistics.pendingJobs}</div>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600">In Progress</div>
+                      <div className="text-2xl font-bold text-purple-700">{progressDialog.progressData.statistics.inProgressJobs}</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="text-lg font-semibold text-gray-900 mb-2">Completion Rate</div>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-1">
+                        <div className="w-full bg-gray-200 rounded-full h-4">
+                          <div
+                            className="bg-blue-600 h-4 rounded-full"
+                            style={{ width: `${progressDialog.progressData.statistics.completionPercentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      <div className="text-xl font-bold text-blue-700">
+                        {progressDialog.progressData.statistics.completionPercentage.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600">Jobs with Reading</div>
+                      <div className="text-xl font-bold text-green-700">{progressDialog.progressData.statistics.jobsWithReading}</div>
+                    </div>
+                    <div className="bg-orange-50 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600">Valid No Access</div>
+                      <div className="text-xl font-bold text-orange-700">{progressDialog.progressData.statistics.validNoAccessJobs}</div>
+                    </div>
+                    <div className="bg-indigo-50 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600">Total Points</div>
+                      <div className="text-xl font-bold text-indigo-700">{progressDialog.progressData.statistics.totalPoints}</div>
+                    </div>
+                    <div className="bg-teal-50 p-4 rounded-lg">
+                      <div className="text-sm text-gray-600">Total Distance</div>
+                      <div className="text-xl font-bold text-teal-700">{progressDialog.progressData.statistics.totalDistanceMiles.toFixed(2)} miles</div>
+                    </div>
+                  </div>
+
+                  <div className="text-sm text-gray-500 text-center">
+                    Date Range: {progressDialog.progressData.dateRange.start} to {progressDialog.progressData.dateRange.end}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-red-600">Failed to load progress data</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
