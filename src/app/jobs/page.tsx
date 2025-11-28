@@ -12,24 +12,30 @@ import { ConnectionStatus } from '@/components/ConnectionStatus';
 
 interface Job {
   _id: string;
-  jobType: string;
-  address: {
+  jobType?: string;
+  address?: {
     street: string;
     city: string;
     state: string;
     zipCode: string;
     country: string;
   };
-  assignedTo: {
+  house?: {
+    address?: string;
+    city?: string;
+    county?: string;
+    postcode?: string;
+  };
+  assignedTo?: {
     _id: string;
     firstName: string;
     lastName: string;
     username: string;
     department: string;
   };
-  status: string;
-  priority: string;
-  scheduledDate: string;
+  status?: string;
+  priority?: string;
+  scheduledDate?: string;
   sequenceNumber?: number | null;
   completedDate?: string;
   notes?: string;
@@ -242,12 +248,22 @@ export default function JobsPage() {
   const handleEdit = (job: Job) => {
     setEditingJob(job);
     setFormData({
-      jobType: job.jobType,
-      address: job.address,
-      assignedTo: job.assignedTo._id,
-      priority: job.priority,
-      status: job.status,
-      scheduledDate: job.scheduledDate.split('T')[0],
+      jobType: job.jobType || 'electricity',
+      address: job.address || (job.house ? {
+        street: job.house.address || '',
+        city: job.house.city || '',
+        state: job.house.county || '',
+        zipCode: job.house.postcode || '',
+      } : {
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+      }),
+      assignedTo: job.assignedTo?._id || '',
+      priority: job.priority || 'medium',
+      status: job.status || 'pending',
+      scheduledDate: job.scheduledDate ? job.scheduledDate.split('T')[0] : new Date().toISOString().split('T')[0],
       notes: job.notes || '',
       sup: job.sup || '',
       jt: job.jt || '',
@@ -454,7 +470,8 @@ export default function JobsPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | undefined) => {
+    if (!status) return 'bg-gray-100 text-gray-800';
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'in_progress': return 'bg-blue-100 text-blue-800';
@@ -464,7 +481,8 @@ export default function JobsPage() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority: string | undefined) => {
+    if (!priority) return 'bg-gray-100 text-gray-800';
     switch (priority) {
       case 'low': return 'bg-green-100 text-green-800';
       case 'medium': return 'bg-yellow-100 text-yellow-800';
@@ -473,7 +491,8 @@ export default function JobsPage() {
     }
   };
 
-  const getJobTypeIcon = (jobType: string) => {
+  const getJobTypeIcon = (jobType: string | undefined) => {
+    if (!jobType) return '📋';
     switch (jobType) {
       case 'electricity': return '⚡';
       case 'gas': return '🔥';
@@ -990,7 +1009,7 @@ export default function JobsPage() {
                               <span className="text-2xl mr-3">{getJobTypeIcon(job.jobType)}</span>
                               <div>
                                 <div className="text-sm font-medium text-gray-900 capitalize">
-                                  {job.jobType}
+                                  {job.jobType || 'N/A'}
                                   {job.sequenceNumber !== null && job.sequenceNumber !== undefined && (
                                     <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                                       #{job.sequenceNumber}
@@ -998,18 +1017,33 @@ export default function JobsPage() {
                                   )}
                                 </div>
                                 <div className="text-sm text-gray-500">
-                                  ID: {job._id.slice(-8)}
+                                  ID: {job._id ? job._id.slice(-8) : 'N/A'}
                                 </div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900">
-                              {job.address.street}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {job.address.city}, {job.address.state} {job.address.zipCode}
-                            </div>
+                            {job.address ? (
+                              <>
+                                <div className="text-sm text-gray-900">
+                                  {job.address.street || 'N/A'}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {[job.address.city, job.address.state, job.address.zipCode].filter(Boolean).join(', ') || 'N/A'}
+                                </div>
+                              </>
+                            ) : job.house ? (
+                              <>
+                                <div className="text-sm text-gray-900">
+                                  {job.house.address || 'N/A'}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {[job.house.city, job.house.county, job.house.postcode].filter(Boolean).join(', ') || 'N/A'}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-sm text-gray-500">Address not available</div>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
@@ -1021,16 +1055,16 @@ export default function JobsPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(job.status)}`}>
-                              {job.status.replace('_', ' ')}
+                              {job.status ? job.status.replace('_', ' ') : 'N/A'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(job.priority)}`}>
-                              {job.priority}
+                              {job.priority || 'N/A'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(job.scheduledDate).toLocaleDateString()}
+                            {job.scheduledDate ? new Date(job.scheduledDate).toLocaleDateString() : 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
@@ -1077,7 +1111,7 @@ export default function JobsPage() {
         onClose={closeDeleteDialog}
         onConfirm={confirmDeleteJob}
         title="Delete Job"
-        itemName={deleteDialog.job ? `${deleteDialog.job.jobType} job at ${deleteDialog.job.address.street}` : ''}
+        itemName={deleteDialog.job ? `${deleteDialog.job.jobType} job at ${deleteDialog.job.address?.street || deleteDialog.job.house?.address || 'unknown location'}` : ''}
         isLoading={deleteDialog.isLoading}
       />
 

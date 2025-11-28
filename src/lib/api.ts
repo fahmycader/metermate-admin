@@ -150,6 +150,16 @@ export const usersAPI = {
       throw new Error(error.response?.data?.message || 'Failed to get user progress');
     }
   },
+
+  getUserLocation: async (id: string) => {
+    try {
+      const response = await api.get(`/users/${id}/location`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get user location error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get user location');
+    }
+  },
 };
 
 export const housesAPI = {
@@ -285,6 +295,22 @@ export const jobsAPI = {
     }
   },
 
+  getCompletedJobsByOperator: async (operatorId: string) => {
+    try {
+      const response = await api.get('/jobs', {
+        params: {
+          status: 'completed',
+          assignedTo: operatorId,
+          limit: 1000, // Get all completed jobs
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get completed jobs by operator error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get completed jobs');
+    }
+  },
+
   getMileageReport: async (params?: any) => {
     try {
       const response = await api.get('/jobs/mileage-report', { params });
@@ -368,6 +394,38 @@ export const messagesAPI = {
     } catch (error: any) {
       console.error('Delete message error:', error);
       throw new Error(error.response?.data?.message || 'Failed to delete message');
+    }
+  },
+};
+
+export const vehicleCheckAPI = {
+  getVehicleChecks: async (params?: any) => {
+    try {
+      const response = await api.get('/vehicle-checks', { params });
+      return response.data;
+    } catch (error: any) {
+      console.error('Get vehicle checks error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get vehicle checks');
+    }
+  },
+
+  getVehicleCheck: async (id: string) => {
+    try {
+      const response = await api.get(`/vehicle-checks/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get vehicle check error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get vehicle check');
+    }
+  },
+
+  getVehicleChecksByOperative: async (operativeId: string) => {
+    try {
+      const response = await api.get(`/vehicle-checks/operative/${operativeId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get vehicle checks by operative error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get vehicle checks');
     }
   },
 };

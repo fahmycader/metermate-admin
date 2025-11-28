@@ -41,11 +41,13 @@ export default function UsersPage() {
     user: User | null;
     isLoading: boolean;
     progressData: any;
+    locationData: any;
   }>({
     isOpen: false,
     user: null,
     isLoading: false,
     progressData: null,
+    locationData: null,
   });
   const { user } = useAuth();
 
@@ -131,15 +133,22 @@ export default function UsersPage() {
       user: userToView,
       isLoading: true,
       progressData: null,
+      locationData: null,
     });
 
     try {
-      const response = await usersAPI.getUserProgress(userToView._id);
+      // Fetch both progress and location data
+      const [progressResponse, locationResponse] = await Promise.all([
+        usersAPI.getUserProgress(userToView._id).catch(() => null),
+        usersAPI.getUserLocation(userToView._id).catch(() => null),
+      ]);
+      
       setProgressDialog({
         isOpen: true,
         user: userToView,
         isLoading: false,
-        progressData: response,
+        progressData: progressResponse,
+        locationData: locationResponse,
       });
     } catch (error: any) {
       console.error('Error fetching progress:', error);
@@ -148,6 +157,7 @@ export default function UsersPage() {
         user: userToView,
         isLoading: false,
         progressData: null,
+        locationData: null,
       });
     }
   };
@@ -158,6 +168,7 @@ export default function UsersPage() {
       user: null,
       isLoading: false,
       progressData: null,
+      locationData: null,
     });
   };
 
@@ -435,6 +446,161 @@ export default function UsersPage() {
                   <div className="text-sm text-gray-500 text-center">
                     Date Range: {progressDialog.progressData.dateRange.start} to {progressDialog.progressData.dateRange.end}
                   </div>
+
+                  {/* Location Section */}
+                  {progressDialog.locationData?.user?.currentLocation && (
+                    <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-lg font-semibold text-indigo-900">Current Location</div>
+                        <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Latitude:</span>
+                          <span className="font-mono font-semibold text-indigo-700">
+                            {progressDialog.locationData.user.currentLocation.latitude?.toFixed(6)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Longitude:</span>
+                          <span className="font-mono font-semibold text-indigo-700">
+                            {progressDialog.locationData.user.currentLocation.longitude?.toFixed(6)}
+                          </span>
+                        </div>
+                        {progressDialog.locationData.user.currentLocation.accuracy && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Accuracy:</span>
+                            <span className="font-semibold text-indigo-700">
+                              ±{progressDialog.locationData.user.currentLocation.accuracy.toFixed(0)}m
+                            </span>
+                          </div>
+                        )}
+                        {progressDialog.locationData.user.currentLocation.timestamp && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Last Updated:</span>
+                            <span className="text-indigo-600">
+                              {new Date(progressDialog.locationData.user.currentLocation.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="mt-3 pt-3 border-t border-indigo-200">
+                          <a
+                            href={`https://www.google.com/maps?q=${progressDialog.locationData.user.currentLocation.latitude},${progressDialog.locationData.user.currentLocation.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            View on Google Maps
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {progressDialog.locationData && !progressDialog.locationData.user?.currentLocation && (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4">
+                      <div className="text-sm text-gray-600 text-center">
+                        No location data available for this operative
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Job Locations Map Section */}
+                  {progressDialog.progressData?.jobLocations && progressDialog.progressData.jobLocations.length > 0 && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-lg font-semibold text-blue-900">Job Locations Map</div>
+                        <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span className="text-gray-700">Job Location</span>
+                          </div>
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                            <span className="text-gray-700">Start Point</span>
+                          </div>
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                            <span className="text-gray-700">Completion Point</span>
+                          </div>
+                          {progressDialog.locationData?.user?.currentLocation && (
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+                              <span className="text-gray-700">Current Location</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {progressDialog.progressData.jobLocations.map((job: any, idx: number) => (
+                            <div key={idx} className="bg-white p-2 rounded border border-blue-100">
+                              <div className="font-medium text-xs text-gray-900">
+                                Job {job.jobId || `#${job.sequenceNumber || idx + 1}`} ({job.status})
+                              </div>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {job.jobLocation && (
+                                  <a
+                                    href={`https://www.google.com/maps?q=${job.jobLocation.latitude},${job.jobLocation.longitude}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-green-600 hover:text-green-800"
+                                  >
+                                    📍 Job Location
+                                  </a>
+                                )}
+                                {job.startLocation && (
+                                  <a
+                                    href={`https://www.google.com/maps?q=${job.startLocation.latitude},${job.startLocation.longitude}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:text-blue-800"
+                                  >
+                                    🚀 Start Point
+                                  </a>
+                                )}
+                                {job.endLocation && (
+                                  <a
+                                    href={`https://www.google.com/maps?q=${job.endLocation.latitude},${job.endLocation.longitude}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-red-600 hover:text-red-800"
+                                  >
+                                    ✅ Completion Point
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-blue-200">
+                          <a
+                            href={`https://www.google.com/maps/dir/${progressDialog.progressData.jobLocations
+                              .filter((j: any) => j.jobLocation)
+                              .map((j: any) => `${j.jobLocation.latitude},${j.jobLocation.longitude}`)
+                              .join('/')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm"
+                          >
+                            <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                            </svg>
+                            View All Locations on Google Maps
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-8">
