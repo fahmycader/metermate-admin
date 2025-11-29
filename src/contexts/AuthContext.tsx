@@ -46,11 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = localStorage.getItem('user');
       
       if (token && userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        
-        // Initialize WebSocket connection
-        webSocketService.connect(token);
+        try {
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
+          
+          // Initialize WebSocket connection
+          webSocketService.connect(token);
+        } catch (parseError) {
+          console.error('Error parsing user data:', parseError);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
       }
     } catch (error) {
       console.error('Auth check error:', error);

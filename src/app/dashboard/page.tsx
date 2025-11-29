@@ -200,9 +200,9 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            dbUser.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            dbUser.lastLogin ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
-                            {dbUser.isActive ? 'Active' : 'Inactive'}
+                            {dbUser.lastLogin ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

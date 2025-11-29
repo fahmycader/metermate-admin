@@ -49,6 +49,17 @@ export default function UsersPage() {
     progressData: null,
     locationData: null,
   });
+  const [editDialog, setEditDialog] = useState<{
+    isOpen: boolean;
+    user: User | null;
+    isLoading: boolean;
+    formData: Partial<User>;
+  }>({
+    isOpen: false,
+    user: null,
+    isLoading: false,
+    formData: {},
+  });
   const { user } = useAuth();
 
   useEffect(() => {
@@ -81,6 +92,23 @@ export default function UsersPage() {
 
   const refreshUsers = () => {
     fetchUsers();
+  };
+
+  const handleEditUser = (userToEdit: User) => {
+    setEditDialog({
+      isOpen: true,
+      user: userToEdit,
+      isLoading: false,
+      formData: {
+        firstName: userToEdit.firstName,
+        lastName: userToEdit.lastName,
+        email: userToEdit.email,
+        phone: userToEdit.phone,
+        employeeId: userToEdit.employeeId,
+        department: userToEdit.department,
+        role: userToEdit.role,
+      },
+    });
   };
 
   const handleDeleteUser = (userToDelete: User) => {
@@ -125,6 +153,38 @@ export default function UsersPage() {
       user: null,
       isLoading: false,
     });
+  };
+
+  const closeEditDialog = () => {
+    setEditDialog({
+      isOpen: false,
+      user: null,
+      isLoading: false,
+      formData: {},
+    });
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editDialog.user) return;
+
+    setEditDialog(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      const updatedUser = await usersAPI.updateUser(editDialog.user._id, editDialog.formData);
+      
+      // Update user in local state
+      setUsers(prev => prev.map(u => u._id === updatedUser._id ? updatedUser : u));
+      
+      // Close dialog
+      closeEditDialog();
+      
+      // Show success message
+      setError('');
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      setError(`Failed to update user: ${error.message}`);
+      setEditDialog(prev => ({ ...prev, isLoading: false }));
+    }
   };
 
   const handleViewProgress = async (userToView: User) => {
@@ -306,9 +366,9 @@ export default function UsersPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            dbUser.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            dbUser.lastLogin ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
-                            {dbUser.isActive ? 'Active' : 'Inactive'}
+                            {dbUser.lastLogin ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -607,6 +667,138 @@ export default function UsersPage() {
                   <div className="text-red-600">Failed to load progress data</div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Dialog */}
+      {editDialog.isOpen && editDialog.user && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                      Edit User: {editDialog.user.firstName} {editDialog.user.lastName}
+                    </h3>
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">First Name</label>
+                        <input
+                          type="text"
+                          value={editDialog.formData.firstName || ''}
+                          onChange={(e) => setEditDialog(prev => ({
+                            ...prev,
+                            formData: { ...prev.formData, firstName: e.target.value }
+                          }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                        <input
+                          type="text"
+                          value={editDialog.formData.lastName || ''}
+                          onChange={(e) => setEditDialog(prev => ({
+                            ...prev,
+                            formData: { ...prev.formData, lastName: e.target.value }
+                          }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Email</label>
+                        <input
+                          type="email"
+                          value={editDialog.formData.email || ''}
+                          onChange={(e) => setEditDialog(prev => ({
+                            ...prev,
+                            formData: { ...prev.formData, email: e.target.value }
+                          }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Phone</label>
+                        <input
+                          type="tel"
+                          value={editDialog.formData.phone || ''}
+                          onChange={(e) => setEditDialog(prev => ({
+                            ...prev,
+                            formData: { ...prev.formData, phone: e.target.value }
+                          }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Employee ID</label>
+                        <input
+                          type="text"
+                          value={editDialog.formData.employeeId || ''}
+                          onChange={(e) => setEditDialog(prev => ({
+                            ...prev,
+                            formData: { ...prev.formData, employeeId: e.target.value }
+                          }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Department</label>
+                        <select
+                          value={editDialog.formData.department || 'meter'}
+                          onChange={(e) => setEditDialog(prev => ({
+                            ...prev,
+                            formData: { ...prev.formData, department: e.target.value }
+                          }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        >
+                          <option value="meter">Meter</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Role</label>
+                        <select
+                          value={editDialog.formData.role || 'meter_reader'}
+                          onChange={(e) => setEditDialog(prev => ({
+                            ...prev,
+                            formData: { ...prev.formData, role: e.target.value }
+                          }))}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        >
+                          <option value="meter_reader">Meter Reader</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={handleEditSubmit}
+                  disabled={editDialog.isLoading}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                >
+                  {editDialog.isLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeEditDialog}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
