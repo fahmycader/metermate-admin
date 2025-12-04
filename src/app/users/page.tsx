@@ -63,9 +63,20 @@ export default function UsersPage() {
   const { user } = useAuth();
 
   useEffect(() => {
+    if (!user) {
+      // User not logged in, show message
+      setError('Please login to view users. Redirecting to login page...');
+      setLoading(false);
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+      return;
+    }
+    
     if (user?.role === 'admin') {
       fetchUsers();
     } else {
+      setError('Access denied: You need admin privileges to view users');
       setLoading(false);
     }
   }, [user]);
@@ -74,6 +85,18 @@ export default function UsersPage() {
     try {
       setLoading(true);
       setError('');
+      
+      // Check if user is authenticated
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token) {
+        setError('Please login first. Redirecting to login page...');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+        setLoading(false);
+        return;
+      }
+      
       const response = await usersAPI.getMeterUsers();
       setUsers(response.users || []);
     } catch (error: any) {
@@ -86,17 +109,24 @@ export default function UsersPage() {
       });
       
       if (error.response?.status === 401) {
-        setError('Authentication failed: Please login again. Redirecting to login...');
+        const errorMsg = error.response?.data?.message || 'Authentication failed';
+        if (errorMsg.includes('no token')) {
+          setError('Please login first. Redirecting to login page...');
+        } else {
+          setError('Authentication failed: Please login again. Redirecting to login...');
+        }
         // Clear invalid token and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
         setTimeout(() => {
           window.location.href = '/';
         }, 2000);
       } else if (error.response?.status === 403 || error.message.includes('Access denied')) {
         setError('Access denied: You need admin privileges to view users');
       } else if (error.message.includes('Network Error') || error.message.includes('Failed to fetch')) {
-        setError('Network error: Cannot connect to backend server. Please check if backend is running on http://192.168.1.99:3001');
+        setError('Network error: Cannot connect to backend server. Please check if backend is running on http://localhost:3001');
       } else {
         setError(`Failed to fetch users: ${error.response?.data?.message || error.message || 'Unknown error'}`);
       }

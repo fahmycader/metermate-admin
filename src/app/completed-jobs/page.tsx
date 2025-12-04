@@ -6,7 +6,7 @@ import { usersAPI, jobsAPI } from '@/lib/api';
 import AdminLayout from '@/components/AdminLayout';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 
-const API_BASE_URL = 'http://192.168.1.99:3001';
+const API_BASE_URL = 'http://localhost:3001/api';
 
 // Helper to get auth token for photo requests
 const getAuthToken = () => {
@@ -182,7 +182,7 @@ export default function CompletedJobsPage() {
     
     // Construct URL using the upload endpoint with token
     const token = getAuthToken();
-    const url = `${API_BASE_URL}/api/upload/meter-photos/${filename}`;
+    const url = `${API_BASE_URL}/upload/meter-photos/${filename}`;
     
     // For now, return the URL - the API will handle auth via interceptors
     return url;
