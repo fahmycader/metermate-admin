@@ -78,12 +78,27 @@ export default function UsersPage() {
       setUsers(response.users || []);
     } catch (error: any) {
       console.error('Error fetching users:', error);
-      if (error.message.includes('403') || error.message.includes('Access denied')) {
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      
+      if (error.response?.status === 401) {
+        setError('Authentication failed: Please login again. Redirecting to login...');
+        // Clear invalid token and redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else if (error.response?.status === 403 || error.message.includes('Access denied')) {
         setError('Access denied: You need admin privileges to view users');
-      } else if (error.message.includes('401')) {
-        setError('Authentication failed: Please login again');
+      } else if (error.message.includes('Network Error') || error.message.includes('Failed to fetch')) {
+        setError('Network error: Cannot connect to backend server. Please check if backend is running on http://192.168.1.99:3001');
       } else {
-        setError(`Failed to fetch users: ${error.message}`);
+        setError(`Failed to fetch users: ${error.response?.data?.message || error.message || 'Unknown error'}`);
       }
     } finally {
       setLoading(false);
@@ -231,6 +246,31 @@ export default function UsersPage() {
       locationData: null,
     });
   };
+
+  // Real-time progress updates when progress dialog is open
+  useEffect(() => {
+    if (!progressDialog.isOpen || !progressDialog.user) return;
+
+    // Fetch progress data every 5 seconds
+    const interval = setInterval(async () => {
+      try {
+        const [progressResponse, locationResponse] = await Promise.all([
+          usersAPI.getUserProgress(progressDialog.user!._id).catch(() => null),
+          usersAPI.getUserLocation(progressDialog.user!._id).catch(() => null),
+        ]);
+        
+        setProgressDialog(prev => ({
+          ...prev,
+          progressData: progressResponse || prev.progressData,
+          locationData: locationResponse || prev.locationData,
+        }));
+      } catch (error) {
+        console.error('Error updating progress:', error);
+      }
+    }, 5000); // Update every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [progressDialog.isOpen, progressDialog.user?._id]);
 
   if (loading) {
     return (
@@ -389,6 +429,15 @@ export default function UsersPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                               </svg>
                             </button>
+                            <button
+                              onClick={() => handleEditUser(dbUser)}
+                              className="text-green-600 hover:text-green-900 text-sm"
+                              title="Edit User"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
                             {dbUser._id !== user?._id && (
                               <button
                                 onClick={() => handleDeleteUser(dbUser)}
@@ -428,9 +477,15 @@ export default function UsersPage() {
           <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {progressDialog.user ? `${progressDialog.user.firstName} ${progressDialog.user.lastName} - Progress Report` : 'Progress Report'}
-                </h3>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {progressDialog.user ? `${progressDialog.user.firstName} ${progressDialog.user.lastName} - Progress Report` : 'Progress Report'}
+                  </h3>
+                  <div className="flex items-center mt-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                    <span className="text-xs text-gray-500">Live updates every 5 seconds</span>
+                  </div>
+                </div>
                 <button
                   onClick={closeProgressDialog}
                   className="text-gray-400 hover:text-gray-600"
@@ -502,6 +557,72 @@ export default function UsersPage() {
                       <div className="text-xl font-bold text-teal-700">{progressDialog.progressData.statistics.totalDistanceMiles.toFixed(2)} miles</div>
                     </div>
                   </div>
+
+                  {/* Work Hours Section */}
+                  {progressDialog.progressData.workHours && (
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border-2 border-blue-200 mt-4">
+                      <div className="text-lg font-semibold text-gray-900 mb-3">Today's Work Hours</div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                          <div className="text-xs text-gray-500 mb-1">Start Time</div>
+                          <div className="text-lg font-bold text-blue-700">
+                            {progressDialog.progressData.workHours.startTime 
+                              ? new Date(progressDialog.progressData.workHours.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                              : 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {progressDialog.progressData.workHours.startTime 
+                              ? new Date(progressDialog.progressData.workHours.startTime).toLocaleDateString('en-GB')
+                              : ''}
+                          </div>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                          <div className="text-xs text-gray-500 mb-1">End Time</div>
+                          <div className="text-lg font-bold text-green-700">
+                            {progressDialog.progressData.workHours.endTime 
+                              ? new Date(progressDialog.progressData.workHours.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                              : progressDialog.progressData.workHours.isActive 
+                                ? <span className="text-orange-600">Active</span>
+                                : 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {progressDialog.progressData.workHours.endTime 
+                              ? new Date(progressDialog.progressData.workHours.endTime).toLocaleDateString('en-GB')
+                              : progressDialog.progressData.workHours.isActive 
+                                ? 'Shift in progress'
+                                : ''}
+                          </div>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                          <div className="text-xs text-gray-500 mb-1">Total Hours</div>
+                          <div className="text-lg font-bold text-indigo-700">
+                            {progressDialog.progressData.workHours.totalHours !== null 
+                              ? `${progressDialog.progressData.workHours.totalHours.toFixed(2)} hrs`
+                              : 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {progressDialog.progressData.workHours.isActive && 'Live calculation'}
+                          </div>
+                        </div>
+                      </div>
+                      {progressDialog.progressData.workHours.isActive && (
+                        <div className="mt-3 text-center">
+                          <div className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">
+                            <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                            Shift Active - Hours updating in real-time
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!progressDialog.progressData.workHours && (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4">
+                      <div className="text-sm text-gray-600 text-center">
+                        No work hours data available for today. Operative needs to submit a vehicle check to start tracking.
+                      </div>
+                    </div>
+                  )}
 
                   <div className="text-sm text-gray-500 text-center">
                     Date Range: {progressDialog.progressData.dateRange.start} to {progressDialog.progressData.dateRange.end}
@@ -699,7 +820,7 @@ export default function UsersPage() {
                             ...prev,
                             formData: { ...prev.formData, firstName: e.target.value }
                           }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 bg-white"
                         />
                       </div>
                       <div>
@@ -711,7 +832,7 @@ export default function UsersPage() {
                             ...prev,
                             formData: { ...prev.formData, lastName: e.target.value }
                           }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 bg-white"
                         />
                       </div>
                       <div>
@@ -723,7 +844,7 @@ export default function UsersPage() {
                             ...prev,
                             formData: { ...prev.formData, email: e.target.value }
                           }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 bg-white"
                         />
                       </div>
                       <div>
@@ -735,7 +856,7 @@ export default function UsersPage() {
                             ...prev,
                             formData: { ...prev.formData, phone: e.target.value }
                           }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 bg-white"
                         />
                       </div>
                       <div>
@@ -747,7 +868,7 @@ export default function UsersPage() {
                             ...prev,
                             formData: { ...prev.formData, employeeId: e.target.value }
                           }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 bg-white"
                         />
                       </div>
                       <div>
@@ -758,7 +879,7 @@ export default function UsersPage() {
                             ...prev,
                             formData: { ...prev.formData, department: e.target.value }
                           }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 bg-white"
                         >
                           <option value="meter">Meter</option>
                           <option value="admin">Admin</option>
@@ -772,7 +893,7 @@ export default function UsersPage() {
                             ...prev,
                             formData: { ...prev.formData, role: e.target.value }
                           }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 bg-white"
                         >
                           <option value="meter_reader">Meter Reader</option>
                           <option value="admin">Admin</option>

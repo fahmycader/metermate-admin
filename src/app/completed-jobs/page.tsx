@@ -6,7 +6,7 @@ import { usersAPI, jobsAPI } from '@/lib/api';
 import AdminLayout from '@/components/AdminLayout';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 
-const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = 'http://192.168.1.99:3001';
 
 // Helper to get auth token for photo requests
 const getAuthToken = () => {
