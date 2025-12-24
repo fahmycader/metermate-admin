@@ -56,6 +56,10 @@ interface UserMileageData {
   totalDistanceKm?: number; // in km
   totalDistanceMiles?: number; // in miles
   mileagePayment?: number; // in £
+  totalBonus?: number; // Total bonus earned
+  totalAward?: number; // Keep for backward compatibility
+  jobsWithReading?: number; // Jobs with successful reading
+  validNoAccessJobs?: number; // Valid no access jobs
   totalJobs: number;
   completedJobs: number;
   averageDistancePerJob: number;
@@ -231,7 +235,7 @@ export default function UserMileagePage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -313,6 +317,23 @@ export default function UserMileagePage() {
               </div>
             </div>
           </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold">£</span>
+                </div>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Total Bonus Earned</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(mileageData.reduce((sum: number, data: UserMileageData) => sum + (data.totalBonus || data.totalAward || 0), 0))}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">From completed jobs</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* User Mileage Table */}
@@ -341,6 +362,9 @@ export default function UserMileagePage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Avg Distance/Job
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total Bonus Earned
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -376,6 +400,9 @@ export default function UserMileagePage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDistance(data.averageDistancePerJob)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-emerald-700">
+                        {formatCurrency(data.totalBonus || data.totalAward || 0)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button

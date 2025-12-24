@@ -140,15 +140,28 @@ export default function CompletedJobsPage() {
     try {
       const response = await jobsAPI.getCompletedJobsByOperator(operatorId);
       const jobs = response.jobs || [];
-      // Debug: Log photos data
-      console.log('Loaded jobs:', jobs.length);
+      // Debug: Log photos data for each job
+      console.log('📥 Loaded completed jobs:', jobs.length);
       jobs.forEach((job: any, index: number) => {
-        console.log(`Job ${index + 1} (${job._id}):`, {
+        const photosCount = job.photos?.length || 0;
+        const meterPhotosCount = job.meterPhotos?.length || 0;
+        const totalPhotos = photosCount + meterPhotosCount;
+        
+        console.log(`📸 Job ${index + 1} (${job._id}):`, {
+          jobId: job.jobId,
+          status: job.status,
           photos: job.photos,
-          photosLength: job.photos?.length || 0,
+          photosLength: photosCount,
           meterPhotos: job.meterPhotos,
-          meterPhotosLength: job.meterPhotos?.length || 0,
+          meterPhotosLength: meterPhotosCount,
+          totalPhotos: totalPhotos,
+          hasPhotos: totalPhotos > 0
         });
+        
+        // Warn if job is completed but has no photos
+        if (job.status === 'completed' && totalPhotos === 0) {
+          console.warn(`⚠️ Completed job ${job._id} has no photos!`);
+        }
       });
       setCompletedJobs(jobs);
     } catch (error) {
@@ -169,9 +182,16 @@ export default function CompletedJobsPage() {
       return '';
     }
     
-    // If it's already a full URL, return as is
+    // If it's already a full URL (Cloudinary or other cloud storage), return as is
     if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
       return photoPath;
+    }
+    
+    // If it's a local path starting with /uploads/, construct the full URL
+    if (photoPath.startsWith('/uploads/')) {
+      const token = getAuthToken();
+      const url = `${API_BASE_URL}${photoPath}`;
+      return url;
     }
     
     // Extract just the filename if it's a full path
@@ -180,11 +200,10 @@ export default function CompletedJobsPage() {
       filename = photoPath.split('/').pop() || photoPath;
     }
     
-    // Construct URL using the upload endpoint with token
+    // Construct URL using the upload endpoint with token (fallback for old format)
     const token = getAuthToken();
     const url = `${API_BASE_URL}/upload/meter-photos/${filename}`;
     
-    // For now, return the URL - the API will handle auth via interceptors
     return url;
   };
 
@@ -602,8 +621,16 @@ export default function CompletedJobsPage() {
                 {/* Photos */}
                 {(() => {
                   const allPhotos = getAllPhotos(selectedJob);
-                  return allPhotos.length > 0 ? (
-                    <div className="border-b pb-4" data-photos-section>
+                  console.log('📷 Rendering photos section for job:', selectedJob._id, {
+                    allPhotosCount: allPhotos.length,
+                    allPhotos: allPhotos,
+                    rawPhotos: selectedJob.photos,
+                    rawMeterPhotos: selectedJob.meterPhotos
+                  });
+                  
+                  if (allPhotos.length > 0) {
+                    return (
+                      <div className="border-b pb-4" data-photos-section>
                       <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
                         <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -657,8 +684,31 @@ export default function CompletedJobsPage() {
                       <p className="mt-2 text-xs text-gray-500 italic">
                         Click on any photo to view in full size
                       </p>
-                    </div>
-                  ) : null;
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="border-b pb-4" data-photos-section>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                          <svg className="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Photos
+                        </h3>
+                        <div className="bg-gray-50 rounded-lg p-6 text-center">
+                          <svg className="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-gray-600">No photos available for this job</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {(!selectedJob.photos || selectedJob.photos.length === 0) && (!selectedJob.meterPhotos || selectedJob.meterPhotos.length === 0)
+                              ? 'Photos were not uploaded when this job was completed.'
+                              : 'Photos may still be processing or were not saved correctly.'}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
                 })()}
 
                 {/* Notes */}

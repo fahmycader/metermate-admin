@@ -12,6 +12,7 @@ interface User {
   lastName: string;
   email: string;
   role: string;
+  employeeId?: string;
 }
 
 interface Message {
@@ -24,11 +25,23 @@ interface Message {
   read: boolean;
   starred?: boolean;
   createdAt: string;
+  meta?: {
+    operativeName?: string;
+    operativeId?: string;
+    totalBonusEarned?: number;
+    totalAwardEarned?: number; // Keep for backward compatibility
+    bonusFromJobs?: number;
+    bonusFromNoAccess?: number;
+    awardFromJobs?: number; // Keep for backward compatibility
+    awardFromNoAccess?: number; // Keep for backward compatibility
+    [key: string]: any;
+  };
 }
 
 export default function MessagesPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [filteredMessages, setFilteredMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showSendDialog, setShowSendDialog] = useState(false);
@@ -36,6 +49,8 @@ export default function MessagesPage() {
   const [selectedUser, setSelectedUser] = useState('');
   const [messageTitle, setMessageTitle] = useState('');
   const [messageBody, setMessageBody] = useState('');
+  const [filterOperative, setFilterOperative] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
     message: Message | null;
@@ -66,7 +81,9 @@ export default function MessagesPage() {
       
       // Fetch all messages
       const messagesResponse = await messagesAPI.getMessages();
-      setMessages(messagesResponse.data || []);
+      const allMessages = messagesResponse.data || [];
+      setMessages(allMessages);
+      setFilteredMessages(allMessages);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       setError(`Failed to fetch data: ${error.message}`);
@@ -74,6 +91,82 @@ export default function MessagesPage() {
       setLoading(false);
     }
   };
+
+  // Filter messages based on selected operative or search term
+  useEffect(() => {
+    let filtered = [...messages];
+
+    // Filter by selected operative (only if a specific operative is selected)
+    if (filterOperative && filterOperative.trim() !== '') {
+      filtered = filtered.filter(msg => {
+        const recipient = msg.recipient as any;
+        const selectedUser = users.find(u => u._id === filterOperative);
+        
+        // 1. Messages TO the operative (admin sent to operative)
+        // Check recipient ID
+        if (msg.recipient?._id === filterOperative) {
+          return true;
+        }
+        // Check recipient employeeId
+        if (selectedUser && recipient?.employeeId === selectedUser.employeeId) {
+          return true;
+        }
+        
+        // 2. Messages FROM the operative (operative sent to admin or reports)
+        // Check meta field for operativeUserId (daily reports)
+        if (msg.meta?.operativeUserId === filterOperative) {
+          return true;
+        }
+        // Check meta field for fromUser (poke messages, etc.)
+        if (msg.meta?.fromUser === filterOperative) {
+          return true;
+        }
+        // Check if operative name/ID in meta matches selected user
+        if (selectedUser) {
+          const metaOperativeId = msg.meta?.operativeId;
+          const metaFromEmployeeId = msg.meta?.fromEmployeeId;
+          if (metaOperativeId === selectedUser.employeeId || 
+              metaFromEmployeeId === selectedUser.employeeId) {
+            return true;
+          }
+        }
+        
+        // 3. Check if message is a daily report for this operative
+        // (reports have reportType and operativeUserId in meta)
+        if (msg.meta?.reportType === 'daily_mileage_performance' || 
+            msg.meta?.reportType === 'daily_mileage_performance_admin_copy') {
+          if (msg.meta?.operativeUserId === filterOperative) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
+    }
+
+    // Filter by search term (name or ID) - only if search term is provided
+    if (searchTerm && searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(msg => {
+        const recipient = msg.recipient as any;
+        const operativeName = msg.meta?.operativeName || '';
+        const operativeId = msg.meta?.operativeId || '';
+        const recipientName = `${recipient?.firstName || ''} ${recipient?.lastName || ''}`.trim().toLowerCase();
+        const recipientId = recipient?.employeeId || '';
+        const recipientUsername = recipient?.username || '';
+        
+        return (
+          recipientName.includes(term) ||
+          recipientId.toLowerCase().includes(term) ||
+          recipientUsername.toLowerCase().includes(term) ||
+          operativeName.toLowerCase().includes(term) ||
+          operativeId.toLowerCase().includes(term)
+        );
+      });
+    }
+
+    setFilteredMessages(filtered);
+  }, [filterOperative, searchTerm, messages, users]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,28 +396,124 @@ export default function MessagesPage() {
           </div>
         )}
 
+        {/* Filter Section */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+              Filter Messages
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by Operative
+                </label>
+                <select
+                  value={filterOperative}
+                  onChange={(e) => setFilterOperative(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                >
+                  <option value="">All Operatives</option>
+                  {users.map((user) => (
+                    <option key={user._id} value={user._id}>
+                      {user.firstName} {user.lastName} {user.employeeId ? `(ID: ${user.employeeId})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Search by Name or ID
+                </label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by name or employee ID..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+              </div>
+            </div>
+            {(filterOperative || searchTerm) && (
+              <div className="mt-4">
+                <button
+                  onClick={() => {
+                    setFilterOperative('');
+                    setSearchTerm('');
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Messages List */}
         <div className="bg-white shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
-                All Messages
+                {filterOperative || searchTerm ? 'Filtered Messages' : 'All Messages'}
               </h3>
               <div className="text-sm text-gray-500">
-                Total messages: <span className="font-medium">{messages.length}</span>
+                Showing: <span className="font-medium">{filteredMessages.length}</span> of <span className="font-medium">{messages.length}</span>
               </div>
             </div>
 
-            {messages.length === 0 ? (
+            {filteredMessages.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-gray-500">No messages found</div>
                 <div className="text-sm text-gray-400 mt-2">
-                  Send a message to a meter reader to get started
+                  {filterOperative || searchTerm 
+                    ? 'Try adjusting your filters' 
+                    : 'Send a message to a meter reader to get started'}
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
-                {messages.map((message) => (
+                {filteredMessages.map((message) => {
+                  // Get operative info from meta or recipient
+                  const operativeName = message.meta?.operativeName || 
+                    message.meta?.fromUserName ||
+                    (message.recipient ? `${(message.recipient as any).firstName || ''} ${(message.recipient as any).lastName || ''}`.trim() : '');
+                  const operativeId = message.meta?.operativeId || 
+                    message.meta?.fromEmployeeId || 
+                    (message.recipient as any)?.employeeId || 'N/A';
+                  const totalBonus = message.meta?.totalBonusEarned || message.meta?.totalAwardEarned; // Support both for backward compatibility
+                  
+                  // Determine message direction
+                  const isReport = message.meta?.reportType === 'daily_mileage_performance' || 
+                                   message.meta?.reportType === 'daily_mileage_performance_admin_copy';
+                  
+                  // Check if message is FROM the selected operative
+                  const selectedUser = users.find(u => u._id === filterOperative);
+                  const isFromOperative = filterOperative && (
+                    message.meta?.fromUser === filterOperative ||
+                    message.meta?.operativeUserId === filterOperative ||
+                    (selectedUser && (
+                      message.meta?.fromEmployeeId === selectedUser.employeeId ||
+                      message.meta?.operativeId === selectedUser.employeeId
+                    ))
+                  );
+                  
+                  // Check if message is TO the selected operative
+                  const isToOperative = filterOperative && (
+                    message.recipient?._id === filterOperative ||
+                    (selectedUser && (message.recipient as any)?.employeeId === selectedUser.employeeId)
+                  );
+                  
+                  // Determine message type label
+                  let messageTypeLabel = '';
+                  if (isReport && filterOperative) {
+                    messageTypeLabel = '📊 Daily Report';
+                  } else if (isFromOperative) {
+                    messageTypeLabel = '📤 From Operative';
+                  } else if (isToOperative) {
+                    messageTypeLabel = '📥 To Operative';
+                  }
+                  
+                  return (
                   <div
                     key={message._id}
                     className={`border rounded-lg p-4 ${
@@ -333,16 +522,24 @@ export default function MessagesPage() {
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <h4 className={`font-medium ${message.read ? 'text-gray-700' : 'text-blue-900'}`}>
                             {message.title}
                           </h4>
+                          {messageTypeLabel && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
+                              {messageTypeLabel}
+                            </span>
+                          )}
                           <span className={`px-2 py-1 text-xs rounded-full ${
                             message.type === 'admin' ? 'bg-blue-100 text-blue-800' :
                             message.type === 'mileage_report' ? 'bg-green-100 text-green-800' :
+                            message.meta?.type === 'poke' ? 'bg-orange-100 text-orange-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {message.type ? message.type.replace('_', ' ') : 'Unknown'}
+                            {message.meta?.type === 'poke' ? 'Poke' :
+                             message.meta?.reportType ? message.meta.reportType.replace(/_/g, ' ') :
+                             message.type ? message.type.replace('_', ' ') : 'Message'}
                           </span>
                           {message.read ? (
                             <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center gap-1">
@@ -366,12 +563,35 @@ export default function MessagesPage() {
                         </p>
                         
                         <div className="text-xs text-gray-500 space-y-1">
-                          <div>
-                            <strong>To:</strong> {message.recipient.firstName} {message.recipient.lastName} ({message.recipient.username})
-                          </div>
-                          {message.sender && (
+                          {filterOperative && operativeName && (
                             <div>
-                              <strong>From:</strong> {message.sender.firstName} {message.sender.lastName}
+                              <strong>Operative:</strong> {operativeName} {operativeId !== 'N/A' && <span className="font-semibold">(ID: {operativeId})</span>}
+                            </div>
+                          )}
+                          {isFromOperative && (
+                            <div className="text-blue-700 font-medium">
+                              📤 Sent by operative to admin
+                            </div>
+                          )}
+                          {isToOperative && !isFromOperative && (
+                            <div className="text-green-700 font-medium">
+                              📥 Sent by admin to operative
+                            </div>
+                          )}
+                          <div>
+                            <strong>Recipient:</strong> {message.recipient.firstName} {message.recipient.lastName} 
+                            {message.recipient.employeeId && <span> (ID: {message.recipient.employeeId})</span>}
+                            {message.recipient.username && <span> ({message.recipient.username})</span>}
+                          </div>
+                          {message.meta?.fromUserName && (
+                            <div>
+                              <strong>From:</strong> {message.meta.fromUserName}
+                              {message.meta.fromEmployeeId && <span> (ID: {message.meta.fromEmployeeId})</span>}
+                            </div>
+                          )}
+                          {totalBonus !== undefined && totalBonus !== null && (
+                            <div className="text-green-700 font-semibold">
+                              💵 Total Bonus Earned: £{totalBonus.toFixed(2)}
                             </div>
                           )}
                           <div>
@@ -379,7 +599,7 @@ export default function MessagesPage() {
                           </div>
                           {message.read && (
                             <div className="text-green-600 font-medium">
-                              ✓ Message opened by operative
+                              ✓ Message opened
                             </div>
                           )}
                         </div>
@@ -407,7 +627,8 @@ export default function MessagesPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

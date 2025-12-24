@@ -212,9 +212,16 @@ export default function JobsPage() {
       }
       
       resetForm();
+      setShowCreateForm(false);
       refetch();
     } catch (err: any) {
-      setSubmitError(err.message || 'Failed to save job');
+      console.error('Job creation error:', err);
+      // Extract error message from response
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.message || 
+                          err.message || 
+                          'Failed to save job';
+      setSubmitError(errorMessage);
     }
   };
 
