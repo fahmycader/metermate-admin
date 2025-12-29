@@ -766,7 +766,7 @@ export default function UsersPage() {
                                     rel="noopener noreferrer"
                                     className="text-xs text-green-600 hover:text-green-800"
                                   >
-                                    📍 Job Location
+                                    Job Location
                                   </a>
                                 )}
                                 {job.startLocation && (
@@ -776,7 +776,7 @@ export default function UsersPage() {
                                     rel="noopener noreferrer"
                                     className="text-xs text-blue-600 hover:text-blue-800"
                                   >
-                                    🚀 Start Point
+                                    Start Point
                                   </a>
                                 )}
                                 {job.endLocation && (
@@ -786,7 +786,7 @@ export default function UsersPage() {
                                     rel="noopener noreferrer"
                                     className="text-xs text-red-600 hover:text-red-800"
                                   >
-                                    ✅ Completion Point
+                                    Completion Point
                                   </a>
                                 )}
                               </div>

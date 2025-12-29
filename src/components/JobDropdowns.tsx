@@ -15,9 +15,9 @@ export const JobTypeSelect: React.FC<JobTypeSelectProps> = ({
   className = '',
 }) => {
   const jobTypeOptions = [
-    { value: 'electricity', label: '⚡ Electricity' },
-    { value: 'gas', label: '🔥 Gas' },
-    { value: 'water', label: '💧 Water' },
+    { value: 'electricity', label: 'Electricity' },
+    { value: 'gas', label: 'Gas' },
+    { value: 'water', label: 'Water' },
   ];
 
   return (
@@ -146,10 +146,10 @@ export const StatusSelect: React.FC<StatusSelectProps> = ({
   className = '',
 }) => {
   const statusOptions = [
-    { value: 'pending', label: '⏳ Pending' },
-    { value: 'in_progress', label: '🔄 In Progress' },
-    { value: 'completed', label: '✅ Completed' },
-    { value: 'cancelled', label: '❌ Cancelled' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
   ];
 
   return (

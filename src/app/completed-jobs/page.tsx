@@ -141,13 +141,13 @@ export default function CompletedJobsPage() {
       const response = await jobsAPI.getCompletedJobsByOperator(operatorId);
       const jobs = response.jobs || [];
       // Debug: Log photos data for each job
-      console.log('📥 Loaded completed jobs:', jobs.length);
+      console.log('Loaded completed jobs:', jobs.length);
       jobs.forEach((job: any, index: number) => {
         const photosCount = job.photos?.length || 0;
         const meterPhotosCount = job.meterPhotos?.length || 0;
         const totalPhotos = photosCount + meterPhotosCount;
         
-        console.log(`📸 Job ${index + 1} (${job._id}):`, {
+        console.log(`Job ${index + 1} (${job._id}):`, {
           jobId: job.jobId,
           status: job.status,
           photos: job.photos,
@@ -160,7 +160,7 @@ export default function CompletedJobsPage() {
         
         // Warn if job is completed but has no photos
         if (job.status === 'completed' && totalPhotos === 0) {
-          console.warn(`⚠️ Completed job ${job._id} has no photos!`);
+          console.warn(`Completed job ${job._id} has no photos!`);
         }
       });
       setCompletedJobs(jobs);
@@ -621,7 +621,7 @@ export default function CompletedJobsPage() {
                 {/* Photos */}
                 {(() => {
                   const allPhotos = getAllPhotos(selectedJob);
-                  console.log('📷 Rendering photos section for job:', selectedJob._id, {
+                  console.log('Rendering photos section for job:', selectedJob._id, {
                     allPhotosCount: allPhotos.length,
                     allPhotos: allPhotos,
                     rawPhotos: selectedJob.photos,

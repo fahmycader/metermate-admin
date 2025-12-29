@@ -499,12 +499,12 @@ export default function JobsPage() {
   };
 
   const getJobTypeIcon = (jobType: string | undefined) => {
-    if (!jobType) return '📋';
+    if (!jobType) return '';
     switch (jobType) {
-      case 'electricity': return '⚡';
-      case 'gas': return '🔥';
-      case 'water': return '💧';
-      default: return '📋';
+      case 'electricity': return '';
+      case 'gas': return '';
+      case 'water': return '';
+      default: return '';
     }
   };
 

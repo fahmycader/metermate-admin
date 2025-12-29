@@ -506,11 +506,11 @@ export default function MessagesPage() {
                   // Determine message type label
                   let messageTypeLabel = '';
                   if (isReport && filterOperative) {
-                    messageTypeLabel = '📊 Daily Report';
+                    messageTypeLabel = 'Daily Report';
                   } else if (isFromOperative) {
-                    messageTypeLabel = '📤 From Operative';
+                    messageTypeLabel = 'From Operative';
                   } else if (isToOperative) {
-                    messageTypeLabel = '📥 To Operative';
+                    messageTypeLabel = 'To Operative';
                   }
                   
                   return (
@@ -570,12 +570,12 @@ export default function MessagesPage() {
                           )}
                           {isFromOperative && (
                             <div className="text-blue-700 font-medium">
-                              📤 Sent by operative to admin
+                              Sent by operative to admin
                             </div>
                           )}
                           {isToOperative && !isFromOperative && (
                             <div className="text-green-700 font-medium">
-                              📥 Sent by admin to operative
+                              Sent by admin to operative
                             </div>
                           )}
                           <div>
