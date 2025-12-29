@@ -14,7 +14,7 @@ interface JobData {
     street: string;
     city: string;
     state: string;
-    zipCode: string;
+    postcode: string;
   };
   assignedTo: {
     _id: string;
@@ -52,8 +52,7 @@ interface UserMileageData {
     username: string;
     employeeId: string;
   };
-  totalDistance: number; // in km (for backward compatibility)
-  totalDistanceKm?: number; // in km
+  totalDistance: number; // in miles
   totalDistanceMiles?: number; // in miles
   mileagePayment?: number; // in £
   totalBonus?: number; // Total bonus earned
@@ -97,12 +96,7 @@ export default function UserMileagePage() {
   }, [user]);
 
   const formatDistance = (distance: number) => {
-    return `${distance.toFixed(2)} km`;
-  };
-
-  const formatDistanceMiles = (distanceKm: number) => {
-    const miles = distanceKm * 0.621371; // Convert km to miles
-    return `${miles.toFixed(2)} miles`;
+    return `${distance.toFixed(2)} miles`;
   };
 
   const formatCurrency = (amount: number) => {
@@ -260,10 +254,7 @@ export default function UserMileagePage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Distance</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatDistance(mileageData.reduce((sum: number, data: UserMileageData) => sum + (data.totalDistanceKm || data.totalDistance), 0))}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {formatDistanceMiles(mileageData.reduce((sum: number, data: UserMileageData) => sum + (data.totalDistanceKm || data.totalDistance), 0))}
+                  {formatDistance(mileageData.reduce((sum: number, data: UserMileageData) => sum + (data.totalDistanceMiles || data.totalDistance), 0))}
                 </p>
               </div>
             </div>
@@ -387,13 +378,10 @@ export default function UserMileagePage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDistance(data.totalDistanceKm || data.totalDistance)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {data.totalDistanceMiles ? `${data.totalDistanceMiles.toFixed(2)} miles` : formatDistanceMiles(data.totalDistanceKm || data.totalDistance)}
+                        {formatDistance(data.totalDistanceMiles || data.totalDistance)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-700">
-                        {data.mileagePayment ? formatCurrency(data.mileagePayment) : formatCurrency((data.totalDistanceKm || data.totalDistance) * 0.621371 * 0.35)}
+                        {data.mileagePayment ? formatCurrency(data.mileagePayment) : formatCurrency((data.totalDistanceMiles || data.totalDistance) * 0.35)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {data.completedJobs} / {data.totalJobs}
@@ -465,7 +453,7 @@ export default function UserMileagePage() {
                   <div>
                     <h4 className="font-medium text-gray-900">Address</h4>
                     <p className="text-sm text-gray-900">
-                      {selectedJob.address.street}, {selectedJob.address.city}, {selectedJob.address.state} {selectedJob.address.zipCode}
+                      {selectedJob.address.street}, {selectedJob.address.city}, {selectedJob.address.state} {selectedJob.address.postcode}
                     </p>
                   </div>
 

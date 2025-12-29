@@ -65,6 +65,42 @@ export const authAPI = {
       throw new Error(error.response?.data?.message || 'Registration failed');
     }
   },
+  sendVerificationCode: async (email: string, type: 'registration' | 'password_reset' = 'registration') => {
+    try {
+      const response = await api.post('/auth/send-verification-code', { email, type });
+      return response.data;
+    } catch (error: any) {
+      console.error('Send verification code error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to send verification code');
+    }
+  },
+  verifyCode: async (email: string, code: string, type: 'registration' | 'password_reset' = 'registration') => {
+    try {
+      const response = await api.post('/auth/verify-code', { email, code, type });
+      return response.data;
+    } catch (error: any) {
+      console.error('Verify code error:', error);
+      throw new Error(error.response?.data?.message || 'Verification failed');
+    }
+  },
+  forgotPassword: async (email: string) => {
+    try {
+      const response = await api.post('/auth/forgot-password', { email });
+      return response.data;
+    } catch (error: any) {
+      console.error('Forgot password error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to send password reset code');
+    }
+  },
+  resetPassword: async (email: string, code: string, newPassword: string) => {
+    try {
+      const response = await api.post('/auth/reset-password', { email, code, newPassword });
+      return response.data;
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      throw new Error(error.response?.data?.message || 'Password reset failed');
+    }
+  },
 
   getProfile: async () => {
     try {

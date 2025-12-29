@@ -45,7 +45,7 @@ interface WageSummary {
   totalBaseWage: number;
   totalFuelAllowance: number;
   totalWage: number;
-  ratePerKm: number;
+  ratePerMile: number;
   fuelAllowancePerJob: number;
 }
 
@@ -56,7 +56,7 @@ export default function WagePage() {
     endDate: new Date().toISOString().split('T')[0], // today
   });
   const [wageSettings, setWageSettings] = useState({
-    ratePerKm: 0.50, // £0.50 per kilometer
+    ratePerMile: 0.50, // £0.50 per mile
     fuelAllowancePerJob: 1.00, // £1.00 per job for fuel allowance
   });
   const { user } = useAuth();
@@ -66,7 +66,7 @@ export default function WagePage() {
     userId: selectedUser || undefined,
     startDate: dateRange.startDate || undefined,
     endDate: dateRange.endDate || undefined,
-    ratePerKm: wageSettings.ratePerKm,
+    ratePerMile: wageSettings.ratePerMile,
     fuelAllowancePerJob: wageSettings.fuelAllowancePerJob,
   };
 
@@ -83,7 +83,7 @@ export default function WagePage() {
     totalBaseWage: 0,
     totalFuelAllowance: 0,
     totalWage: 0,
-    ratePerKm: 0.50,
+    ratePerMile: 0.50,
     fuelAllowancePerJob: 1.00,
   };
   const meterReaders = usersResponse?.users || [];
@@ -100,7 +100,7 @@ export default function WagePage() {
   };
 
   const formatDistance = (distance: number) => {
-    return `${distance.toFixed(2)} km`;
+    return `${distance.toFixed(2)} miles`;
   };
 
   const formatDate = (dateString: string) => {
@@ -175,13 +175,13 @@ export default function WagePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Rate per Kilometer (£)
+                  Rate per Mile (£)
                 </label>
                 <input
                   type="number"
                   step="0.01"
-                  value={wageSettings.ratePerKm}
-                  onChange={(e) => handleWageSettingsChange('ratePerKm', parseFloat(e.target.value) || 0)}
+                  value={wageSettings.ratePerMile}
+                  onChange={(e) => handleWageSettingsChange('ratePerMile', parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                 />
               </div>
@@ -200,7 +200,7 @@ export default function WagePage() {
             </div>
             <div className="mt-4">
               <p className="text-sm text-gray-600">
-                <strong>Current Settings:</strong> {formatCurrency(wageSettings.ratePerKm)} per km + {formatCurrency(wageSettings.fuelAllowancePerJob)} fuel allowance per completed job
+                <strong>Current Settings:</strong> {formatCurrency(wageSettings.ratePerMile)} per mile + {formatCurrency(wageSettings.fuelAllowancePerJob)} fuel allowance per completed job
               </p>
             </div>
           </div>
@@ -334,7 +334,7 @@ export default function WagePage() {
                           {formatCurrency(userData.baseWage)}
                         </div>
                         <div className="text-xs text-blue-500">
-                          {formatDistance(userData.totalDistance)} × {formatCurrency(wageSettings.ratePerKm)}
+                          {formatDistance(userData.totalDistance)} × {formatCurrency(wageSettings.ratePerMile)}
                         </div>
                       </div>
                       <div className="bg-orange-50 p-3 rounded">
@@ -394,7 +394,7 @@ export default function WagePage() {
                                   </td>
                                   <td className="px-3 py-2 text-gray-900 font-medium">
                                     {job.status === 'completed' && job.distanceTraveled !== undefined
-                                      ? formatCurrency((job.distanceTraveled || 0) * wageSettings.ratePerKm + wageSettings.fuelAllowancePerJob)
+                                      ? formatCurrency((job.distanceTraveled || 0) * wageSettings.ratePerMile + wageSettings.fuelAllowancePerJob)
                                       : 'N/A'
                                     }
                                   </td>

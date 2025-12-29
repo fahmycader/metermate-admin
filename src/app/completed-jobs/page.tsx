@@ -24,7 +24,7 @@ interface CompletedJob {
     street?: string;
     city?: string;
     state?: string;
-    zipCode?: string;
+    postcode?: string;
     country?: string;
   };
   house?: {
@@ -256,7 +256,7 @@ export default function CompletedJobsPage() {
 
   const formatAddress = (job: CompletedJob) => {
     if (job.address?.street) {
-      return `${job.address.street}, ${job.address.city || ''}, ${job.address.state || ''} ${job.address.zipCode || ''}`.trim();
+      return `${job.address.street}, ${job.address.city || ''}, ${job.address.state || ''} ${job.address.postcode || ''}`.trim();
     }
     if (job.house?.address) {
       return `${job.house.address}, ${job.house.city || ''}, ${job.house.county || ''} ${job.house.postcode || ''}`.trim();
@@ -610,7 +610,7 @@ export default function CompletedJobsPage() {
                         <div>
                           <span className="font-medium text-gray-700">Distance Traveled:</span>
                           <span className="ml-2 text-gray-900">
-                            {selectedJob.distanceTraveled.toFixed(2)} km
+                            {selectedJob.distanceTraveled.toFixed(2)} miles
                           </span>
                         </div>
                       )}

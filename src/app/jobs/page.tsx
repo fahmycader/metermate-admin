@@ -17,7 +17,7 @@ interface Job {
     street: string;
     city: string;
     state: string;
-    zipCode: string;
+    postcode: string;
     country: string;
   };
   house?: {
@@ -123,7 +123,7 @@ export default function JobsPage() {
       street: '',
       city: '',
       state: '',
-      zipCode: '',
+      postcode: '',
       country: 'USA',
     },
     assignedTo: '',
@@ -176,8 +176,8 @@ export default function JobsPage() {
       errors.state = 'State is required';
     }
 
-    if (!formData.address.zipCode.trim()) {
-      errors.zipCode = 'Zip code is required';
+    if (!formData.address.postcode.trim()) {
+      errors.postcode = 'Postcode is required';
     }
 
     if (!formData.assignedTo || formData.assignedTo.trim() === '') {
@@ -232,7 +232,7 @@ export default function JobsPage() {
         street: '',
         city: '',
         state: '',
-        zipCode: '',
+        postcode: '',
         country: 'USA',
       },
       assignedTo: '',
@@ -260,12 +260,12 @@ export default function JobsPage() {
         street: job.house.address || '',
         city: job.house.city || '',
         state: job.house.county || '',
-        zipCode: job.house.postcode || '',
+        postcode: job.house.postcode || '',
       } : {
         street: '',
         city: '',
         state: '',
-        zipCode: '',
+        postcode: '',
       }),
       assignedTo: job.assignedTo?._id || '',
       priority: job.priority || 'medium',
@@ -589,7 +589,7 @@ export default function JobsPage() {
                   Upload an Excel file (.xlsx, .xls, .csv) with job details. Jobs will be automatically ordered by nearest location and numbered sequentially.
                 </p>
                 <p className="text-xs text-gray-500 mb-4">
-                  Required columns: street, city, state, zipCode (optional: jobType, sup, jt, cust, meterMake, meterModel, meterSerialNumber, notes, priority)
+                  Required columns: street, city, state, postcode (optional: jobType, sup, jt, cust, meterMake, meterModel, meterSerialNumber, notes, priority)
                 </p>
                 
                 {submitError && (
@@ -755,17 +755,17 @@ export default function JobsPage() {
                       />
                       
                       <CustomTextInput
-                        id="zipCode"
-                        name="zipCode"
+                        id="postcode"
+                        name="postcode"
                         type="text"
-                        label="Zip Code"
-                        value={formData.address.zipCode}
+                        label="Postcode"
+                        value={formData.address.postcode}
                         onChange={(e) => setFormData({
                           ...formData,
-                          address: { ...formData.address, zipCode: e.target.value }
+                          address: { ...formData.address, postcode: e.target.value }
                         })}
                         required
-                        error={validationErrors.zipCode}
+                        error={validationErrors.postcode}
                       />
                     </div>
                   </div>
@@ -1036,7 +1036,7 @@ export default function JobsPage() {
                                   {job.address.street || 'N/A'}
                                 </div>
                                 <div className="text-sm text-gray-500">
-                                  {[job.address.city, job.address.state, job.address.zipCode].filter(Boolean).join(', ') || 'N/A'}
+                                  {[job.address.city, job.address.state, job.address.postcode].filter(Boolean).join(', ') || 'N/A'}
                                 </div>
                               </>
                             ) : job.house ? (

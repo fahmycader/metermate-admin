@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { authAPI } from '@/lib/api';
 import { CustomTextInput, CustomNumberInput, CustomSelect } from '@/components/CustomInput';
 
 export default function LoginPage() {
@@ -16,17 +17,25 @@ export default function LoginPage() {
     employeeId: '',
     department: 'meter',
     role: 'admin',
+    verificationCode: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordCode, setForgotPasswordCode] = useState('');
+  const [forgotPasswordNewPassword, setForgotPasswordNewPassword] = useState('');
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<'email' | 'code' | 'reset'>('email');
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verificationCodeSent, setVerificationCodeSent] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
   const { login, register, user, loading: authLoading } = useAuth();
 
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
-      // Always redirect to dashboard regardless of role
       window.location.href = '/dashboard';
     }
   }, [user, authLoading]);
@@ -89,10 +98,61 @@ export default function LoginPage() {
       if (!formData.employeeId.trim()) {
         errors.employeeId = 'Employee ID is required';
       }
+
+      // Require email verification for registration
+      if (!emailVerified) {
+        errors.email = 'Please verify your email address first';
+      }
     }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const handleSendVerificationCode = async () => {
+    if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setSendingCode(true);
+    setError('');
+
+    try {
+      await authAPI.sendVerificationCode(formData.email, 'registration');
+      setVerificationCodeSent(true);
+      setError('');
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to send verification code';
+      // Provide more helpful error message
+      if (errorMessage.includes('Email service not configured') || errorMessage.includes('email configuration')) {
+        setError('Email service is not configured. Please add EMAIL_USER and EMAIL_PASS to your backend .env file. See EMAIL_SETUP.md for instructions.');
+      } else {
+        setError(errorMessage);
+      }
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!formData.verificationCode.trim()) {
+      setError('Please enter the verification code');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await authAPI.verifyCode(formData.email, formData.verificationCode, 'registration');
+      setEmailVerified(true);
+      setError('');
+    } catch (err: any) {
+      setError(err.message || 'Verification failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,10 +169,80 @@ export default function LoginPage() {
       if (isLogin) {
         await login(formData.username, formData.password);
       } else {
-        await register(formData);
+        // Include verification code in registration
+        await register({
+          ...formData,
+          verificationCode: formData.verificationCode,
+        });
       }
     } catch (err: any) {
       setError(err.message || `${isLogin ? 'Login' : 'Registration'} failed`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail.trim() || !/\S+@\S+\.\S+/.test(forgotPasswordEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setSendingCode(true);
+    setError('');
+
+    try {
+      await authAPI.forgotPassword(forgotPasswordEmail);
+      setForgotPasswordStep('code');
+      setError('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to send password reset code');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handleVerifyPasswordResetCode = async () => {
+    if (!forgotPasswordCode.trim()) {
+      setError('Please enter the verification code');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await authAPI.verifyCode(forgotPasswordEmail, forgotPasswordCode, 'password_reset');
+      setForgotPasswordStep('reset');
+      setError('');
+    } catch (err: any) {
+      setError(err.message || 'Verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    const passwordError = validatePassword(forgotPasswordNewPassword);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await authAPI.resetPassword(forgotPasswordEmail, forgotPasswordCode, forgotPasswordNewPassword);
+      setShowForgotPassword(false);
+      setForgotPasswordEmail('');
+      setForgotPasswordCode('');
+      setForgotPasswordNewPassword('');
+      setForgotPasswordStep('email');
+      setError('');
+      alert('Password reset successfully! Please login with your new password.');
+    } catch (err: any) {
+      setError(err.message || 'Password reset failed');
     } finally {
       setLoading(false);
     }
@@ -129,9 +259,12 @@ export default function LoginPage() {
       employeeId: '',
       department: 'meter',
       role: 'admin',
+      verificationCode: '',
     });
     setError('');
     setValidationErrors({});
+    setEmailVerified(false);
+    setVerificationCodeSent(false);
   };
 
   const toggleMode = () => {
@@ -268,16 +401,74 @@ export default function LoginPage() {
                 />
               </div>
               
-              <CustomTextInput
-                id="email"
-                name="email"
-                type="email"
-                label="Email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                error={validationErrors.email}
-              />
+              <div>
+                <CustomTextInput
+                  id="email"
+                  name="email"
+                  type="email"
+                  label="Email"
+                  value={formData.email}
+                  onChange={(e) => {
+                    setFormData({ ...formData, email: e.target.value });
+                    setEmailVerified(false);
+                    setVerificationCodeSent(false);
+                  }}
+                  required
+                  error={validationErrors.email}
+                />
+                {formData.email && /\S+@\S+\.\S+/.test(formData.email) && !emailVerified && (
+                  <div className="mt-2 space-y-2">
+                    {!verificationCodeSent ? (
+                      <button
+                        type="button"
+                        onClick={handleSendVerificationCode}
+                        disabled={sendingCode}
+                        className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {sendingCode ? 'Sending...' : 'Send Verification Code'}
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <CustomTextInput
+                          id="verificationCode"
+                          name="verificationCode"
+                          type="text"
+                          placeholder="Enter 6-digit code"
+                          value={formData.verificationCode}
+                          onChange={(e) => setFormData({ ...formData, verificationCode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                          maxLength={6}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleVerifyCode}
+                            disabled={loading || formData.verificationCode.length !== 6}
+                            className="flex-1 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                          >
+                            {loading ? 'Verifying...' : 'Verify Code'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSendVerificationCode}
+                            disabled={sendingCode}
+                            className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                          >
+                            Resend
+                          </button>
+                        </div>
+                        {emailVerified && (
+                          <div className="text-sm text-green-600 flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Email verified
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               
               <CustomTextInput
                 id="phone"
@@ -339,7 +530,7 @@ export default function LoginPage() {
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (!isLogin && !emailVerified)}
                 className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 {loading ? (
@@ -360,9 +551,154 @@ export default function LoginPage() {
                 )}
               </button>
             </div>
+
+            {isLogin && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
           </form>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <button
+              onClick={() => {
+                setShowForgotPassword(false);
+                setForgotPasswordEmail('');
+                setForgotPasswordCode('');
+                setForgotPasswordNewPassword('');
+                setForgotPasswordStep('email');
+                setError('');
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">Reset Password</h3>
+
+            {forgotPasswordStep === 'email' && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">Enter your email address and we'll send you a verification code.</p>
+                <CustomTextInput
+                  id="forgotPasswordEmail"
+                  name="forgotPasswordEmail"
+                  type="email"
+                  label="Email"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={sendingCode || !forgotPasswordEmail || !/\S+@\S+\.\S+/.test(forgotPasswordEmail)}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {sendingCode ? 'Sending...' : 'Send Verification Code'}
+                </button>
+              </div>
+            )}
+
+            {forgotPasswordStep === 'code' && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">Enter the verification code sent to {forgotPasswordEmail}</p>
+                <CustomTextInput
+                  id="forgotPasswordCode"
+                  name="forgotPasswordCode"
+                  type="text"
+                  label="Verification Code"
+                  placeholder="Enter 6-digit code"
+                  value={forgotPasswordCode}
+                  onChange={(e) => setForgotPasswordCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  maxLength={6}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleVerifyPasswordResetCode}
+                    disabled={loading || forgotPasswordCode.length !== 6}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Verifying...' : 'Verify Code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={sendingCode}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                  >
+                    Resend
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {forgotPasswordStep === 'reset' && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">Enter your new password</p>
+                <CustomTextInput
+                  id="forgotPasswordNewPassword"
+                  name="forgotPasswordNewPassword"
+                  type="password"
+                  label="New Password"
+                  value={forgotPasswordNewPassword}
+                  onChange={(e) => setForgotPasswordNewPassword(e.target.value)}
+                  required
+                />
+                {forgotPasswordNewPassword && (
+                  <div className="text-xs text-gray-500">
+                    <p className="font-medium mb-1">Password requirements:</p>
+                    <ul className="space-y-0.5 ml-4">
+                      <li className={forgotPasswordNewPassword.length >= 6 && forgotPasswordNewPassword.length <= 10 ? 'text-green-600' : 'text-gray-400'}>
+                        • 6-10 characters
+                      </li>
+                      <li className={/[A-Z]/.test(forgotPasswordNewPassword) ? 'text-green-600' : 'text-gray-400'}>
+                        • One uppercase letter
+                      </li>
+                      <li className={/[a-z]/.test(forgotPasswordNewPassword) ? 'text-green-600' : 'text-gray-400'}>
+                        • One lowercase letter
+                      </li>
+                      <li className={/[0-9]/.test(forgotPasswordNewPassword) ? 'text-green-600' : 'text-gray-400'}>
+                        • One number
+                      </li>
+                      <li className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(forgotPasswordNewPassword) ? 'text-green-600' : 'text-gray-400'}>
+                        • One symbol
+                      </li>
+                    </ul>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  disabled={loading}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            )}
+
+            {error && (
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
