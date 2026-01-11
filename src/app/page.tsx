@@ -192,11 +192,41 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await authAPI.forgotPassword(forgotPasswordEmail);
-      setForgotPasswordStep('code');
-      setError('');
+      const response = await authAPI.forgotPassword(forgotPasswordEmail);
+      // If email was sent successfully, proceed to code step
+      if (response?.sent || response?.message) {
+        setForgotPasswordStep('code');
+        setError('');
+        // Show success message
+        alert('Verification code sent! Please check your email.');
+      } else {
+        setError('Failed to send verification code. Please try again.');
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to send password reset code');
+      // Handle different error types
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to send password reset code';
+      
+      console.error('Forgot password error:', err);
+      
+      // Check if it's an email configuration error
+      if (errorMessage.includes('not configured') || 
+          errorMessage.includes('configuration is missing') ||
+          errorMessage.includes('EMAIL_USER') ||
+          errorMessage.includes('EMAIL_PASS')) {
+        setError('Email service is not configured on the server. Please contact the administrator to configure email settings.');
+      } else if (errorMessage.includes('authentication failed') || 
+                 errorMessage.includes('Invalid login')) {
+        setError('Email authentication failed. Please contact the administrator to check email credentials.');
+      } else if (errorMessage.includes('connection') || 
+                 errorMessage.includes('connect') ||
+                 errorMessage.includes('ECONNREFUSED') ||
+                 errorMessage.includes('ETIMEDOUT')) {
+        setError('Cannot connect to email server. Please try again later or contact the administrator.');
+      } else if (errorMessage.includes('EMAIL_SEND_FAILED')) {
+        setError('Failed to send email. Please contact the administrator.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setSendingCode(false);
     }
@@ -592,20 +622,28 @@ export default function LoginPage() {
             {forgotPasswordStep === 'email' && (
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">Enter your email address and we'll send you a verification code.</p>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-red-600 text-sm font-medium">{error}</p>
+                  </div>
+                )}
                 <CustomTextInput
                   id="forgotPasswordEmail"
                   name="forgotPasswordEmail"
                   type="email"
                   label="Email"
                   value={forgotPasswordEmail}
-                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  onChange={(e) => {
+                    setForgotPasswordEmail(e.target.value);
+                    setError(''); // Clear error when user types
+                  }}
                   required
                 />
                 <button
                   type="button"
                   onClick={handleForgotPassword}
                   disabled={sendingCode || !forgotPasswordEmail || !/\S+@\S+\.\S+/.test(forgotPasswordEmail)}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {sendingCode ? 'Sending...' : 'Send Verification Code'}
                 </button>
@@ -615,6 +653,11 @@ export default function LoginPage() {
             {forgotPasswordStep === 'code' && (
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">Enter the verification code sent to {forgotPasswordEmail}</p>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-red-600 text-sm font-medium">{error}</p>
+                  </div>
+                )}
                 <CustomTextInput
                   id="forgotPasswordCode"
                   name="forgotPasswordCode"
@@ -622,7 +665,10 @@ export default function LoginPage() {
                   label="Verification Code"
                   placeholder="Enter 6-digit code"
                   value={forgotPasswordCode}
-                  onChange={(e) => setForgotPasswordCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onChange={(e) => {
+                    setForgotPasswordCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                    setError(''); // Clear error when user types
+                  }}
                   maxLength={6}
                 />
                 <div className="flex gap-2">
@@ -630,7 +676,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={handleVerifyPasswordResetCode}
                     disabled={loading || forgotPasswordCode.length !== 6}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? 'Verifying...' : 'Verify Code'}
                   </button>
@@ -638,9 +684,9 @@ export default function LoginPage() {
                     type="button"
                     onClick={handleForgotPassword}
                     disabled={sendingCode}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Resend
+                    {sendingCode ? 'Resending...' : 'Resend'}
                   </button>
                 </div>
               </div>
@@ -649,13 +695,21 @@ export default function LoginPage() {
             {forgotPasswordStep === 'reset' && (
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">Enter your new password</p>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-red-600 text-sm font-medium">{error}</p>
+                  </div>
+                )}
                 <CustomTextInput
                   id="forgotPasswordNewPassword"
                   name="forgotPasswordNewPassword"
                   type="password"
                   label="New Password"
                   value={forgotPasswordNewPassword}
-                  onChange={(e) => setForgotPasswordNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    setForgotPasswordNewPassword(e.target.value);
+                    setError(''); // Clear error when user types
+                  }}
                   required
                 />
                 {forgotPasswordNewPassword && (
@@ -691,11 +745,6 @@ export default function LoginPage() {
               </div>
             )}
 
-            {error && (
-              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-600 text-sm">{error}</p>
-              </div>
-            )}
           </div>
         </div>
       )}
