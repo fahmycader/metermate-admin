@@ -14,6 +14,7 @@ interface CustomInputProps {
   showPasswordToggle?: boolean;
   isPasswordVisible?: boolean;
   onTogglePassword?: () => void;
+  maxLength?: number;
 }
 
 export const CustomTextInput: React.FC<CustomInputProps> = ({
@@ -30,6 +31,7 @@ export const CustomTextInput: React.FC<CustomInputProps> = ({
   showPasswordToggle = false,
   isPasswordVisible = false,
   onTogglePassword,
+  maxLength,
 }) => {
   const inputType = showPasswordToggle && isPasswordVisible ? 'text' : type;
   
@@ -46,16 +48,17 @@ export const CustomTextInput: React.FC<CustomInputProps> = ({
           name={name}
           type={inputType}
           required={required}
-          className={`block w-full px-4 py-3 border rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+          className={`block w-full px-4 py-3 border rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:border-transparent transition-all duration-200 ${
             error 
               ? 'border-red-300 bg-red-50 focus:ring-red-500' 
-              : 'border-gray-300 bg-white hover:border-gray-400 focus:bg-white'
+              : 'border-slate-200 bg-slate-50 hover:border-cyan-300 focus:bg-white'
           } ${showPasswordToggle ? 'pr-12' : ''}`}
           style={{ 
-            backgroundColor: error ? '#fef2f2' : '#ffffff',
-            color: '#111827'
+            backgroundColor: error ? '#fef2f2' : '#f8fafc',
+            color: '#10133d'
           }}
           placeholder={placeholder}
+          maxLength={maxLength}
           value={value}
           onChange={onChange}
         />
@@ -140,10 +143,10 @@ export const CustomNumberInput: React.FC<CustomNumberInputProps> = ({
           required={required}
           min={min}
           max={max}
-          className={`block w-full px-4 py-3 border rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+          className={`block w-full px-4 py-3 border rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:border-transparent transition-all duration-200 ${
             error 
               ? 'border-red-300 bg-red-50 focus:ring-red-500' 
-              : 'border-gray-300 bg-white hover:border-gray-400 focus:bg-white'
+              : 'border-slate-200 bg-slate-50 hover:border-cyan-300 focus:bg-white'
           }`}
           style={{ 
             backgroundColor: error ? '#fef2f2' : '#ffffff',

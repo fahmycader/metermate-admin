@@ -34,6 +34,10 @@ interface UserWageData {
       county: string;
       postcode: string;
     } | null;
+    house?: {
+      address?: string;
+      city?: string;
+    };
   }>;
 }
 

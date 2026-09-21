@@ -3,25 +3,29 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
+  --ink: #10133d;
+  --ink-soft: #272b5f;
+  --cyan: #75d4ed;
+  --lime: #8dcc6f;
+  --lilac: #9a8ac7;
+  --paper: #f7f8fb;
+  --foreground-rgb: 16, 19, 61;
+  --background-start-rgb: 247, 248, 251;
   --background-end-rgb: 255, 255, 255;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+body {
+  min-height: 100vh;
+  color: rgb(var(--foreground-rgb));
+  background: var(--paper);
+  font-family: 'Trebuchet MS', 'Avenir Next', sans-serif;
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+button, input, select {
+  font-family: inherit;
+}
+
+::selection {
+  color: var(--ink);
+  background: var(--cyan);
 }

@@ -261,11 +261,13 @@ export default function JobsPage() {
         city: job.house.city || '',
         state: job.house.county || '',
         postcode: job.house.postcode || '',
+        country: '',
       } : {
         street: '',
         city: '',
         state: '',
         postcode: '',
+        country: '',
       }),
       assignedTo: job.assignedTo?._id || '',
       priority: job.priority || 'medium',

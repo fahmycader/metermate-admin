@@ -14,7 +14,7 @@ export function useMileageReport(dateRange: string = 'week') {
   });
 
   useEffect(() => {
-    const unsubscribe = webSocketService.subscribe('mileageUpdate', (data) => {
+    const unsubscribe = webSocketService.subscribe('mileageUpdate', (_data: unknown) => {
       queryClient.invalidateQueries({ queryKey: ['mileageReport'] });
     });
 
@@ -35,7 +35,7 @@ export function useMeterUsers() {
   });
 
   useEffect(() => {
-    const unsubscribe = webSocketService.subscribe('userUpdate', (data) => {
+    const unsubscribe = webSocketService.subscribe('userUpdate', (_data: unknown) => {
       queryClient.invalidateQueries({ queryKey: ['meterUsers'] });
     });
 
@@ -56,7 +56,7 @@ export function useJobs(params?: any) {
   });
 
   useEffect(() => {
-    const unsubscribe = webSocketService.subscribe('jobUpdate', (data) => {
+    const unsubscribe = webSocketService.subscribe('jobUpdate', (_data: unknown) => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
     });
 
@@ -77,7 +77,7 @@ export function useWageReport(params?: any) {
   });
 
   useEffect(() => {
-    const unsubscribe = webSocketService.subscribe('wageUpdate', (data) => {
+    const unsubscribe = webSocketService.subscribe('wageUpdate', (_data: unknown) => {
       queryClient.invalidateQueries({ queryKey: ['wageReport'] });
     });
 

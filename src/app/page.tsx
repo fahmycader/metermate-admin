@@ -311,31 +311,32 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-[#10133d] py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <div className="absolute -top-32 -right-24 h-96 w-96 rounded-full bg-[#75d4ed]/20 blur-3xl" />
+      <div className="absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-[#9a8ac7]/25 blur-3xl" />
+      <div className="max-w-md w-full space-y-8 relative">
+        <div className="bg-white/95 backdrop-blur rounded-[2rem] shadow-2xl shadow-black/30 p-8 sm:p-10 border border-white/40">
           <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-lg">
-              <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
+            <img src="/logo.png" alt="MeterMate" className="mx-auto h-16 w-auto object-contain mb-5" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#10133d] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-[#75d4ed]">
+              Operations portal
             </div>
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <h2 className="mt-4 text-3xl font-bold tracking-tight text-[#10133d]">
               MeterMate Admin
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-slate-500">
               {isLogin ? 'Sign in to your account' : 'Create a new account'}
             </p>
           </div>
         
           <div className="flex justify-center mb-6">
-            <div className="flex bg-gray-100 rounded-xl p-1 shadow-inner">
+            <div className="flex bg-[#eef1f6] rounded-2xl p-1 shadow-inner">
               <button
                 type="button"
                 onClick={() => setIsLogin(true)}
                 className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
                   isLogin
-                    ? 'bg-white text-blue-600 shadow-md'
+                    ? 'bg-[#10133d] text-white shadow-md'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
@@ -346,7 +347,7 @@ export default function LoginPage() {
                 onClick={() => setIsLogin(false)}
                 className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
                   !isLogin
-                    ? 'bg-white text-blue-600 shadow-md'
+                    ? 'bg-[#10133d] text-white shadow-md'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
@@ -561,7 +562,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || (!isLogin && !emailVerified)}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-200"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-xl text-[#10133d] bg-gradient-to-r from-[#8dcc6f] via-[#75d4ed] to-[#9a8ac7] hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#75d4ed] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 {loading ? (
                   <span className="flex items-center">
@@ -587,7 +588,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-sm text-[#272b5f] hover:text-[#10133d] font-semibold"
                 >
                   Forgot Password?
                 </button>
