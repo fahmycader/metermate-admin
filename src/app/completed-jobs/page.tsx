@@ -6,7 +6,7 @@ import { usersAPI, jobsAPI } from '@/lib/api';
 import AdminLayout from '@/components/AdminLayout';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = 'http://localhost:3001/api/trueread';
 
 // Helper to get auth token for photo requests
 const getAuthToken = () => {
@@ -32,6 +32,13 @@ interface CompletedJob {
     postcode?: string;
     city?: string;
     county?: string;
+    meterLocation?: {
+      latitude?: number;
+      longitude?: number;
+      accuracy?: number;
+      source?: 'gps' | 'manual';
+      pinnedAt?: string;
+    };
   };
   assignedTo?: {
     _id: string;
@@ -63,6 +70,13 @@ interface CompletedJob {
     reading?: number;
     timestamp?: Date;
   }>;
+  pinnedLocation?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    source?: 'gps' | 'manual';
+    pinnedAt?: string;
+  } | null;
   startLocation?: {
     latitude: number;
     longitude: number;
@@ -89,6 +103,32 @@ interface Operator {
   employeeId?: string;
 }
 
+function getPinnedCoordinates(job: CompletedJob) {
+  for (const location of [job.pinnedLocation, job.house?.meterLocation]) {
+    if (!location || location.latitude == null || location.longitude == null) continue;
+
+    const latitude = Number(location.latitude);
+    const longitude = Number(location.longitude);
+    if (
+      Number.isFinite(latitude) &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      Number.isFinite(longitude) &&
+      longitude >= -180 &&
+      longitude <= 180
+    ) {
+      return {
+        latitude,
+        longitude,
+        accuracy: location.accuracy,
+        source: location.source,
+        pinnedAt: location.pinnedAt,
+      };
+    }
+  }
+  return null;
+}
+
 export default function CompletedJobsPage() {
   const { user } = useAuth();
   const [operators, setOperators] = useState<Operator[]>([]);
@@ -98,6 +138,8 @@ export default function CompletedJobsPage() {
   const [selectedJob, setSelectedJob] = useState<CompletedJob | null>(null);
   const [showJobDetails, setShowJobDetails] = useState(false);
   const [expandedPhotos, setExpandedPhotos] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   useEffect(() => {
     loadOperators();
@@ -172,6 +214,26 @@ export default function CompletedJobsPage() {
     }
   };
 
+  const exportCompletedReadings = async () => {
+    setIsExporting(true);
+    setExportError('');
+    try {
+      const csv = await jobsAPI.downloadCompletedReadingsCsv(selectedOperatorId || undefined);
+      const downloadUrl = URL.createObjectURL(csv);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `trueread-completed-readings-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Failed to export completed readings');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleString();
@@ -209,6 +271,7 @@ export default function CompletedJobsPage() {
 
   const getAllPhotos = (job: CompletedJob) => {
     const photos: Array<{ url: string; label: string; type?: string }> = [];
+    const seenUrls = new Set<string>();
     
     // Debug logging
     console.log('Getting photos for job:', job._id, {
@@ -226,6 +289,8 @@ export default function CompletedJobsPage() {
       job.photos.forEach((photo, index) => {
         if (photo && typeof photo === 'string' && photo.trim() !== '') {
           const photoUrl = getPhotoUrl(photo);
+          if (seenUrls.has(photoUrl)) return;
+          seenUrls.add(photoUrl);
           console.log(`Photo ${index + 1} URL:`, photoUrl);
           photos.push({
             url: photoUrl,
@@ -240,6 +305,8 @@ export default function CompletedJobsPage() {
       job.meterPhotos.forEach((meterPhoto, index) => {
         if (meterPhoto && typeof meterPhoto === 'object' && meterPhoto.photoUrl && meterPhoto.photoUrl.trim() !== '') {
           const photoUrl = getPhotoUrl(meterPhoto.photoUrl);
+          if (seenUrls.has(photoUrl)) return;
+          seenUrls.add(photoUrl);
           console.log(`Meter Photo ${index + 1} URL:`, photoUrl);
           photos.push({
             url: photoUrl,
@@ -272,15 +339,33 @@ export default function CompletedJobsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Completed Jobs</h1>
             <p className="mt-2 text-sm text-gray-600">
               View all completed jobs by operator
             </p>
           </div>
-          <ConnectionStatus />
+          <div className="flex items-center gap-3">
+            <ConnectionStatus />
+            <button
+              type="button"
+              onClick={exportCompletedReadings}
+              disabled={isExporting}
+              className="rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isExporting ? 'Preparing CSV...' : 'Export readings CSV'}
+            </button>
+          </div>
         </div>
+        <p className="text-sm text-gray-600">
+          Exports all completed readings, or only the selected operator when a filter is chosen.
+        </p>
+        {exportError && (
+          <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {exportError}
+          </div>
+        )}
 
         {/* Operator Selection */}
         <div className="bg-white shadow rounded-lg p-6">
@@ -354,6 +439,11 @@ export default function CompletedJobsPage() {
                         {job.points !== undefined && (
                           <div>
                             <span className="font-medium">Points:</span> {job.points}
+                          </div>
+                        )}
+                        {getPinnedCoordinates(job) && (
+                          <div className="font-medium text-indigo-700">
+                            Meter location pinned
                           </div>
                         )}
                         {(() => {
@@ -483,6 +573,43 @@ export default function CompletedJobsPage() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Address</h3>
                   <p className="text-sm text-gray-900">{formatAddress(selectedJob)}</p>
                 </div>
+
+                {(() => {
+                  const pinnedLocation = getPinnedCoordinates(selectedJob);
+                  if (!pinnedLocation) return null;
+                  return (
+                    <div className="border-b pb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">Pinned Meter Location</h3>
+                      <div className="mb-3 space-y-1 text-sm text-gray-700">
+                        <p>
+                          Coordinates: {pinnedLocation.latitude.toFixed(6)}, {pinnedLocation.longitude.toFixed(6)}
+                        </p>
+                        <p>Source: {pinnedLocation.source || 'GPS'}</p>
+                        {pinnedLocation.accuracy !== undefined && (
+                          <p>Accuracy: {pinnedLocation.accuracy} m</p>
+                        )}
+                        {pinnedLocation.pinnedAt && (
+                          <p>Pinned: {formatDate(pinnedLocation.pinnedAt)}</p>
+                        )}
+                        <a
+                          href={`https://www.google.com/maps?q=${pinnedLocation.latitude},${pinnedLocation.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block text-blue-700 underline"
+                        >
+                          Open pinned location in Google Maps
+                        </a>
+                      </div>
+                      <iframe
+                        title="Pinned meter location map"
+                        className="h-64 w-full rounded-lg border border-gray-200"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${pinnedLocation.longitude - 0.002},${pinnedLocation.latitude - 0.002},${pinnedLocation.longitude + 0.002},${pinnedLocation.latitude + 0.002}&layer=mapnik&marker=${encodeURIComponent(`${pinnedLocation.latitude},${pinnedLocation.longitude}`)}`}
+                      />
+                    </div>
+                  );
+                })()}
 
                 {/* Operator Information */}
                 {selectedJob.assignedTo && (
@@ -644,7 +771,16 @@ export default function CompletedJobsPage() {
                               src={photo.url}
                               alt={photo.label}
                               className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-75 transition-opacity border-2 border-gray-200"
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Enlarge ${photo.label}`}
                               onClick={() => setExpandedPhotos(expandedPhotos === photo.url ? null : photo.url)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  setExpandedPhotos(photo.url);
+                                }
+                              }}
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 console.error('Failed to load photo:', photo.url);
@@ -673,7 +809,7 @@ export default function CompletedJobsPage() {
                                 {photo.type}
                               </div>
                             )}
-                            <div className="absolute inset-0 bg-blue-500 bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded-lg flex items-center justify-center">
+                            <div className="pointer-events-none absolute inset-0 bg-blue-500 bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded-lg flex items-center justify-center">
                               <svg className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                               </svg>
@@ -728,6 +864,9 @@ export default function CompletedJobsPage() {
           <div
             className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
             onClick={() => setExpandedPhotos(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Enlarged job photo"
           >
             <div className="relative max-w-6xl max-h-full w-full">
               <img

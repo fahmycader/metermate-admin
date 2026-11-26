@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = 'http://localhost:3001/api/trueread';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -349,6 +349,19 @@ export const jobsAPI = {
     } catch (error: any) {
       console.error('Get completed jobs by operator error:', error);
       throw new Error(error.response?.data?.message || 'Failed to get completed jobs');
+    }
+  },
+
+  downloadCompletedReadingsCsv: async (assignedTo?: string): Promise<Blob> => {
+    try {
+      const response = await api.get('/jobs/export/csv', {
+        params: assignedTo ? { assignedTo } : undefined,
+        responseType: 'blob',
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Export completed readings CSV error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to export completed readings');
     }
   },
 

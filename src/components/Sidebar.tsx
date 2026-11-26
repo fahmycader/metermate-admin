@@ -72,6 +72,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       ),
     },
     {
+      name: 'Operative Locations',
+      href: '/operative-locations',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21s7-4.35 7-11a7 7 0 10-14 0c0 6.65 7 11 7 11z" />
+          <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth={2} />
+        </svg>
+      ),
+    },
+    {
       name: 'Messages',
       href: '/messages',
       icon: (
@@ -114,7 +124,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center h-16 px-4">
-            <Image src="/logo.png" alt="MeterMate Admin" width={150} height={50} />
+            <Image src="/logo.png" alt="TrueRead" width={144} height={96} className="h-16 w-auto object-contain" />
           </div>
           {/* User Info */}
           <div className="px-4 py-4 border-b border-gray-200">

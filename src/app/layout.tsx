@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import 'leaflet/dist/leaflet.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { QueryProvider } from '@/providers/QueryProvider'
 
 export const metadata: Metadata = {
-  title: 'MeterMate Admin',
+  title: 'TrueRead Admin',
   description: 'Job management system for meter reading personnel',
   icons: {
     icon: [
